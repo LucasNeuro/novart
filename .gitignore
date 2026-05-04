@@ -1,0 +1,13 @@
+# Ambiente local (credenciais)
+.env
+.env.*
+!.env.example
+web/.env
+web/.env.*
+!web/.env.example
+
+# Dependências e artefactos comuns
+node_modules/
+.output/
+dist/
+.DS_Store

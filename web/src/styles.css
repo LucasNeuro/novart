@@ -1,0 +1,293 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300..900&display=swap");
+@import "tailwindcss";
+
+/* Tokens alinhados a docs/mkds.md e docs/layout-visual.md (Obra10+) */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-lg: 0;
+  --radius-sm: 0;
+
+  --color-primary: #0b1622;
+  --color-secondary: #515f74;
+  --color-tertiary: #22c55e;
+  --color-surface: #f7f9fb;
+  --color-surface-container: #eceef0;
+  --color-surface-container-high: #e6e8ea;
+  --color-surface-container-low: #e2e4e8;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #44474c;
+  --color-outline: #74777d;
+  --color-outline-variant: #c4c6cd;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined", sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: clip;
+  max-width: 100%;
+  min-height: 100%;
+}
+
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-public-fade-in,
+  .landing-hero-blob,
+  .landing-float,
+  .landing-rise,
+  .landing-shimmer {
+    animation: none !important;
+  }
+  .landing-rise {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hub-public-fade-in {
+  animation: hub-fade-in 420ms ease-out both;
+}
+
+@keyframes hub-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Landing: fundo hero suave (referência estrutural, identidade Obra10+) */
+.landing-hero-mesh {
+  background:
+    radial-gradient(ellipse 90% 70% at 0% -20%, color-mix(in oklab, var(--color-tertiary) 22%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 0%, color-mix(in oklab, var(--color-primary) 18%, transparent), transparent 50%),
+    linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-container-low) 100%);
+}
+
+.landing-hero-blob {
+  animation: hub-hero-blob 14s ease-in-out infinite;
+}
+
+@keyframes hub-hero-blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.55;
+  }
+  33% {
+    transform: translate(4%, -3%) scale(1.04);
+    opacity: 0.7;
+  }
+  66% {
+    transform: translate(-3%, 4%) scale(0.96);
+    opacity: 0.5;
+  }
+}
+
+.landing-float {
+  animation: hub-float 6s ease-in-out infinite;
+}
+
+@keyframes hub-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.landing-rise {
+  opacity: 0;
+  animation: hub-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.landing-rise-delay-1 {
+  animation-delay: 0.08s;
+}
+.landing-rise-delay-2 {
+  animation-delay: 0.16s;
+}
+.landing-rise-delay-3 {
+  animation-delay: 0.24s;
+}
+.landing-rise-delay-4 {
+  animation-delay: 0.32s;
+}
+.landing-rise-delay-5 {
+  animation-delay: 0.4s;
+}
+
+@keyframes hub-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-tertiary) 25%, transparent) 45%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  animation: hub-shimmer 9s ease-in-out infinite;
+}
+
+@keyframes hub-shimmer {
+  0%,
+  100% {
+    background-position: 120% 0;
+  }
+  50% {
+    background-position: -20% 0;
+  }
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hub-table-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-primary) 35%, transparent)
+    color-mix(in oklab, var(--color-surface-container-high) 80%, white);
+}
+
+.hub-table-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.hub-table-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-primary) 35%, transparent);
+}
+.hub-table-scrollbar::-webkit-scrollbar-track {
+  background: color-mix(in oklab, var(--color-surface-container-high) 85%, white);
+}
+
+.page-wrap {
+  width: min(1080px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.landing-wrap {
+  width: min(1180px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+/* Hero estilo vitrine comercial — foto em P&B + gradiente (referência estrutural) */
+.landing-hero-intec {
+  position: relative;
+  min-height: min(88vh, 820px);
+  display: flex;
+  align-items: center;
+}
+
+.landing-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(100%) contrast(1.08) brightness(0.92);
+  transform: scale(1.03);
+}
+
+.landing-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    rgba(11, 22, 34, 0.94) 0%,
+    rgba(11, 22, 34, 0.72) 42%,
+    rgba(11, 22, 34, 0.38) 72%,
+    rgba(34, 197, 94, 0.12) 100%
+  );
+}
+
+.landing-hero-content {
+  position: relative;
+  z-index: 10;
+}
+
+/* Faixa com imagem P&B (secção editorial) */
+.landing-band-photo {
+  position: relative;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.landing-band-photo .landing-hero-bg {
+  filter: grayscale(100%) contrast(1.05) brightness(0.85);
+}
+
+/* Login — painel editorial (foto P&B), sem fugir horizontalmente */
+.login-auth-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.login-auth-photo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(100%) contrast(1.08) brightness(0.9);
+  transform: scale(1.02);
+}
+
+.login-auth-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    165deg,
+    rgba(11, 22, 34, 0.92) 0%,
+    rgba(11, 22, 34, 0.72) 45%,
+    rgba(34, 197, 94, 0.14) 100%
+  );
+}
