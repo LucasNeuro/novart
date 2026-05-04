@@ -11,6 +11,7 @@ Documento para **alinhar engenharia** antes e durante a implementação do núcl
 | [spec.md](./spec.md) | Visão do produto, princípios, entidades, módulos, eventos, stack React + Supabase |
 | [mkds.md](./mkds.md) | Manual de UI: tokens, componentes, rotas auth, shell, mapa de ficheiros `frontend/` |
 | [layout-visual.md](./layout-visual.md) | Hierarquia de layouts, `AuthSplitLayout`, `AppShell`, tokens, guards |
+| [visao-crm-agentico.md](./visao-crm-agentico.md) | Visão CRM + agentes de IA (internos/externos), eventos, integrações futuras |
 
 ---
 
@@ -35,6 +36,8 @@ Documento para **alinhar engenharia** antes e durante a implementação do núcl
 
 ## 3. Ordem sugerida — backend (Supabase)
 
+- **Identidade em `public`:** tabela **`public.profiles`** (`auth_subject`, `role` ∈ owner | hub_admin | client, `approval_status` ∈ pending | approved | rejected). Primeiro utilizador que completa `finalize_registration` vira **owner** aprovado; os seguintes pedidos de HUB ficam **hub_admin** até o owner aprovar (`approve_hub_candidate`). CRM: `is_hub_staff()` (owner ou hub_admin aprovados). **Cadastro** na app (`/cadastro`) com validação de campos; **equipa** em `/crm/aprovacoes` (só owner).
+
 1. **Auth e perfis HUB** — tabela(s) e regras que identificam inequivocamente **Administrador HUB** (ver SPEC §4 e MKDS §9.1).
 2. **Tabelas de configuração** — pipelines, etapas (ordem, slug, `is_terminal` onde aplicável); opcionalmente segmentos ou tipos de lead alinhados ao SPEC.
 3. **Entidade de oportunidade na triagem** — ligada a pipeline/estágio atual; campos de **classificação** (humano + sugestão IA); **origem** (`whatsapp` | `form` | `manual`); identificadores externos para **idempotência** de webhook.
@@ -53,6 +56,20 @@ Documento para **alinhar engenharia** antes e durante a implementação do núcl
 - Scaffold **TanStack Start** com **Tailwind v4**; portar `@theme` e utilitários globais do CSS atual (`@import "tailwindcss"`, scrollbars, animações onde existirem).
 - **Componentes próprios:** biblioteca React (Button, Input, Card, PageHeader, tabelas) **estilizada com Tailwind**, alinhada ao MKDS — evitar substituir Tailwind por folhas CSS extensas sem necessidade.
 
+#### 4.1.1 Responsividade — requisito obrigatório (100%)
+
+A plataforma (**site público, login, área de cliente, CRM e futuras vistas**) deve ser **totalmente responsiva**: utilizável e legível desde viewports **estreitas (~320px)** até **desktop largo**, sem depender de zoom do browser para operações normais.
+
+| Diretriz | Detalhe |
+|----------|---------|
+| Abordagem | **Mobile-first** com Tailwind (`sm`, `md`, `lg`, `xl`); grids e stacks que **adaptam** (ex.: `flex-col` → `sm:flex-row`, colunas responsivas). |
+| Overflow | **Sem scroll horizontal global** não intencional; secções com imagem/hero podem usar `overflow-hidden` onde já definido no design. Em **tabelas densas** (CRM), permitir scroll horizontal **local** ao contentor da tabela ou alternativa em cards empilhados em `md` abaixo. |
+| Flex / grid | Filhos de flex com conteúdo longo: preferir `min-w-0` + `truncate` / quebra de linha para não rebentar o layout. |
+| Interação | Áreas clicáveis com **tamanho mínimo confortável** em touch (~44px onde fizer sentido); formulários e botões acessíveis num polegar em telemóvel. |
+| Verificação | Antes de dar por fechada uma vista, validar em **DevTools** (ou dispositivo real) em larguras típicas: 320, 375, 428, 768, 1024px. |
+
+Qualquer nova rota ou componente partilhado deve ser pensado **primeiro** para ecrã pequeno e **reforçado** em breakpoints maiores — não o contrário.
+
 ### 4.2 Autenticação e layouts (login e fluxos)
 
 Mapear os contratos do repositório atual para rotas/layouts do Start:
@@ -67,7 +84,7 @@ Mapear os contratos do repositório atual para rotas/layouts do Start:
 | `AppShell` | Área logada: top bar, sidebar, conteúdo com scroll interno |
 | `getPostLoginPath` (ou equivalente) | Redirecionar `/adm`, `/acesso/pendente-hub`, `/crm` conforme regras atuais |
 
-**Checklist visual:** Inter; Material Symbols Outlined; cores `primary` / `tertiary` / `surface`; labels densos em maiúsculas; no split auth, **scroll só na coluna do formulário** em desktop (cf. layout-visual §4).
+**Checklist visual:** Inter; Material Symbols Outlined; cores `primary` / `tertiary` / `surface`; labels densos em maiúsculas; no split auth, **scroll só na coluna do formulário** em desktop (cf. layout-visual §4); **responsividade** conforme §4.1.1.
 
 ### 4.3 Rotas do CRM (MVP)
 
@@ -91,6 +108,7 @@ O código atual usa **React (Vite) + React Router** (incl. `HashRouter` descrito
 - [ ] Submissão de **formulário configurável** cria registo na **mesma** fila que uma criação vinda de canal WhatsApp (mesma entidade ou view unificada).
 - [ ] Mudanças relevantes geram **eventos** consultáveis no detalhe do registo.
 - [ ] **Login, recuperação de senha e shell** coerentes com MKDS / layout-visual (revisão visual rápida).
+- [ ] **Responsividade 100%:** landing, login, área de cliente (`/acesso`), CRM e fluxos críticos validados de ~320px a desktop; sem scroll horizontal acidental em todo o viewport (exceto scroll local em tabelas/listas densas).
 
 ---
 
@@ -111,7 +129,7 @@ O código atual usa **React (Vite) + React Router** (incl. `HashRouter` descrito
 1. Scaffold TanStack Start + Tailwind v4 + cliente Supabase. *(feito em `web/`.)*
 2. Portar tema CSS e componentes base (marca, auth split, shell mínimo). *(tema MKDS base + cliente Supabase; auth/shell CRM por fazer.)*
 3. Implementar auth, guards e área logada vazia.
-4. Migrations Supabase: ficheiro `supabase/migrations/20260504160000_crm_triagem_core.sql` (pipelines, estágios seed, `triage_leads`, `domain_events`, RLS + `is_hub_admin`). Aplicar no projeto e inserir o primeiro utilizador em `hub_admins`.
+4. Supabase: um único script **`supabase/obra10_hub_init.sql`** (SQL Editor ou seed local na CLI) cria schema, RLS, RPCs, funil e conta admin dev.
 5. UI triagem + UI admin mínima de configuração.
 
 ---
@@ -121,6 +139,8 @@ O código atual usa **React (Vite) + React Router** (incl. `HashRouter` descrito
 | Versão | Data | Notas |
 |--------|------|--------|
 | 0.1 | 2026-05-04 | Versão inicial; alinhado a spec, mkds e layout-visual do repositório |
+| 0.2 | 2026-05-04 | Responsividade da plataforma documentada como requisito obrigatório (§4.1.1 + critérios de pronto) |
+| 0.3 | 2026-05-05 | Identidade em `public.users` (`auth_subject` sem FK a `auth.*`); schema consolidado em `supabase/obra10_hub_init.sql` |
 
 ---
 

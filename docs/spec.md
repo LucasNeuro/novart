@@ -45,6 +45,7 @@ Não é “apenas um software de tarefas ou funil”. A lógica central é **cap
 5. **Validação não trava tudo; o financeiro sim** — Fluxo operacional pode avançar na responsabilidade de cada área; **fluxo financeiro** e **auditoria** dependem de dados confiáveis e regras explícitas.
 6. **Financeiro controlado pelo sistema** — Registrar, custodiar (escrow), distribuir (multisplit) e rastrear; transações geram dados estruturados.
 7. **Integração na origem com captação** — Meta, Google, LinkedIn, formulários, landing pages, cadastro manual e importações futuras, com rastreio de **origem, campanha, canal e segmento**.
+8. **Prontidão para agentes de IA** — O produto deve antecipar **agentes** (internos ou externos) que atualizam estado, propoem classificações e geram síntese, com **humanos no circuito** onde o risco o exige; dados estruturados, **eventos de domínio** e contratos de API são o alicerce — ver [visao-crm-agentico.md](./visao-crm-agentico.md).
 
 ---
 

@@ -1,9 +1,20 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Link, Scripts, createRootRoute } from '@tanstack/react-router'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import SiteChrome, { AppDevtools } from '../components/SiteChrome'
+import { getQueryClient } from '../lib/query-client'
 
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
+  notFoundComponent: () => (
+    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center text-on-surface">
+      <p className="text-lg font-black text-primary">Página não encontrada</p>
+      <Link to="/" className="text-sm font-bold text-tertiary underline">
+        Voltar ao início
+      </Link>
+    </div>
+  ),
   head: () => ({
     meta: [
       {
@@ -38,8 +49,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="bg-surface font-sans text-on-surface antialiased">
-        <SiteChrome>{children}</SiteChrome>
-        <AppDevtools />
+        <QueryClientProvider client={getQueryClient()}>
+          <SiteChrome>{children}</SiteChrome>
+          <AppDevtools />
+          {import.meta.env.DEV ? (
+            <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+          ) : null}
+        </QueryClientProvider>
         <Scripts />
       </body>
     </html>

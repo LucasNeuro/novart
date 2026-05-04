@@ -1,10 +1,12 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
+import Obra10Logo from '../Obra10Logo'
 import { getSupabaseBrowserClient } from '../../lib/supabase/client'
 import { isSupabaseConfigured } from '../../lib/env'
 
 const navItems = [
   { to: '/crm' as const, label: 'Triagem', icon: 'account_tree' },
+  { to: '/crm/aprovacoes' as const, label: 'Equipa', icon: 'how_to_reg' },
   { to: '/crm' as const, label: 'Cadastros', icon: 'group', disabled: true, hint: 'Em breve' },
 ] as const
 
@@ -35,19 +37,17 @@ export default function CrmAppShell({ children, userEmail }: CrmAppShellProps) {
       <aside
         className={`flex shrink-0 flex-col border-r-2 border-primary bg-primary text-white transition-[width] duration-200 ease-out ${sidebarW}`}
       >
-        <div className="flex h-14 items-center justify-between gap-2 border-b border-white/15 px-3">
+        <div className="flex h-14 items-center justify-between gap-2 border-b border-white/15 px-2 sm:px-3">
           <Link
             to="/crm"
-            className={`flex min-w-0 items-center gap-2 overflow-hidden font-black tracking-tight text-white no-underline ${expanded ? 'opacity-100' : 'justify-center'}`}
+            title="Obra10+ — CRM"
+            className={`flex min-w-0 items-center overflow-hidden text-white no-underline ${expanded ? 'justify-start' : 'w-full justify-center'}`}
           >
-            <span className="material-symbols-outlined shrink-0 text-tertiary" aria-hidden>
-              home
-            </span>
-            {expanded && (
-              <span className="truncate text-xs uppercase tracking-[0.12em]">
-                Obra10<span className="text-tertiary">+</span>
-              </span>
-            )}
+            <Obra10Logo
+              onDark
+              markOnly={!expanded}
+              heightClass={expanded ? 'h-7 sm:h-8' : 'h-8 w-8'}
+            />
           </Link>
         </div>
 

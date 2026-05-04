@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import Obra10Logo from '../Obra10Logo'
 import { checkHubAdminAccess } from '../../lib/auth/hub-admin'
 import { isSupabaseConfigured } from '../../lib/env'
 import { getSupabaseBrowserClient } from '../../lib/supabase/client'
@@ -10,7 +11,7 @@ type CrmAuthGateProps = {
 }
 
 /**
- * Protecção ao nível do cliente: Supabase Auth + linha em hub_admins (alinhado ao RLS actual).
+ * CRM: sessão + perfil HUB aprovado (owner | hub_admin via public.profiles).
  */
 export default function CrmAuthGate({ children }: CrmAuthGateProps) {
   const navigate = useNavigate()
@@ -38,6 +39,14 @@ export default function CrmAuthGate({ children }: CrmAuthGateProps) {
           await navigate({ to: '/login', search: { redirect: '/crm' } })
           return
         }
+        if (result.reason === 'pending_approval') {
+          await navigate({ to: '/acesso-pendente' })
+          return
+        }
+        if (result.reason === 'no_profile') {
+          await navigate({ to: '/cadastro' })
+          return
+        }
         if (result.reason === 'not_hub_admin') {
           setState('forbidden')
           return
@@ -60,8 +69,10 @@ export default function CrmAuthGate({ children }: CrmAuthGateProps) {
     return (
       <div className="flex h-dvh items-center justify-center bg-surface text-on-surface">
         <div className="text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-secondary">Obra10+</p>
-          <p className="mt-3 text-sm font-bold text-primary">A carregar o painel…</p>
+          <div className="flex justify-center">
+            <Obra10Logo heightClass="h-9" className="justify-center" />
+          </div>
+          <p className="mt-4 text-sm font-bold text-primary">A carregar o painel…</p>
         </div>
       </div>
     )
@@ -70,11 +81,10 @@ export default function CrmAuthGate({ children }: CrmAuthGateProps) {
   if (state === 'forbidden') {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-surface px-4 text-center">
-        <p className="text-lg font-black text-primary">Sem acesso de administrador HUB</p>
+        <p className="text-lg font-black text-primary">Sem acesso ao CRM</p>
         <p className="max-w-md text-sm text-on-surface-variant">
-          A sua conta tem sessão válida, mas ainda não está na lista de administradores. Peça a um
-          responsável para associar o seu utilizador a <code className="text-xs">hub_admins</code>{' '}
-          no Supabase.
+          A sua conta não tem perfil de equipa HUB aprovado. Confirme o seu pedido em{' '}
+          <code className="text-xs">public.profiles</code> ou utilize a área de cliente.
         </p>
         <button
           type="button"

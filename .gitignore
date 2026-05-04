@@ -6,6 +6,10 @@ web/.env
 web/.env.*
 !web/.env.example
 
+# Supabase CLI (local)
+supabase/.temp/
+supabase/.branches/
+
 # Dependências e artefactos comuns
 node_modules/
 .output/

@@ -29,6 +29,14 @@ npm run test
 
 This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
 
+### Responsividade (requisito do produto)
+
+Toda a UI em `src/` deve ser **totalmente responsiva**: mobile-first, viewports desde ~320px, sem scroll horizontal global involuntário. Diretrizes e critérios de validação: [**`docs/guia-implementacao.md`**](../docs/guia-implementacao.md) (secção **4.1.1**).
+
+### Marca
+
+O logótipo é **`src/components/Obra10Logo.tsx`** (SVG + texto Inter, cores do tema). Ajuste o desenho do ícone ou a tipografia nesse ficheiro para evoluções da identidade.
+
 ### Removing Tailwind CSS
 
 If you prefer not to use Tailwind CSS:

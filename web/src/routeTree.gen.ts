@@ -10,14 +10,39 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InicioRouteImport } from './routes/inicio'
+import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as AcessoPendenteRouteImport } from './routes/acesso-pendente'
+import { Route as AcessoRouteImport } from './routes/acesso'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as CrmRouteRouteImport } from './routes/crm/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CrmIndexRouteImport } from './routes/crm/index'
+import { Route as CrmAprovacoesRouteImport } from './routes/crm/aprovacoes'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InicioRoute = InicioRouteImport.update({
+  id: '/inicio',
+  path: '/inicio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcessoPendenteRoute = AcessoPendenteRouteImport.update({
+  id: '/acesso-pendente',
+  path: '/acesso-pendente',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcessoRoute = AcessoRouteImport.update({
+  id: '/acesso',
+  path: '/acesso',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -40,18 +65,33 @@ const CrmIndexRoute = CrmIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CrmRouteRoute,
 } as any)
+const CrmAprovacoesRoute = CrmAprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
+  getParentRoute: () => CrmRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/crm': typeof CrmRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/acesso': typeof AcessoRoute
+  '/acesso-pendente': typeof AcessoPendenteRoute
+  '/cadastro': typeof CadastroRoute
+  '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
+  '/crm/aprovacoes': typeof CrmAprovacoesRoute
   '/crm/': typeof CrmIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/acesso': typeof AcessoRoute
+  '/acesso-pendente': typeof AcessoPendenteRoute
+  '/cadastro': typeof CadastroRoute
+  '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
+  '/crm/aprovacoes': typeof CrmAprovacoesRoute
   '/crm': typeof CrmIndexRoute
 }
 export interface FileRoutesById {
@@ -59,21 +99,60 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/crm': typeof CrmRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/acesso': typeof AcessoRoute
+  '/acesso-pendente': typeof AcessoPendenteRoute
+  '/cadastro': typeof CadastroRoute
+  '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
+  '/crm/aprovacoes': typeof CrmAprovacoesRoute
   '/crm/': typeof CrmIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/crm' | '/about' | '/login' | '/crm/'
+  fullPaths:
+    | '/'
+    | '/crm'
+    | '/about'
+    | '/acesso'
+    | '/acesso-pendente'
+    | '/cadastro'
+    | '/inicio'
+    | '/login'
+    | '/crm/aprovacoes'
+    | '/crm/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/login' | '/crm'
-  id: '__root__' | '/' | '/crm' | '/about' | '/login' | '/crm/'
+  to:
+    | '/'
+    | '/about'
+    | '/acesso'
+    | '/acesso-pendente'
+    | '/cadastro'
+    | '/inicio'
+    | '/login'
+    | '/crm/aprovacoes'
+    | '/crm'
+  id:
+    | '__root__'
+    | '/'
+    | '/crm'
+    | '/about'
+    | '/acesso'
+    | '/acesso-pendente'
+    | '/cadastro'
+    | '/inicio'
+    | '/login'
+    | '/crm/aprovacoes'
+    | '/crm/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CrmRouteRoute: typeof CrmRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
+  AcessoRoute: typeof AcessoRoute
+  AcessoPendenteRoute: typeof AcessoPendenteRoute
+  CadastroRoute: typeof CadastroRoute
+  InicioRoute: typeof InicioRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -84,6 +163,34 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inicio': {
+      id: '/inicio'
+      path: '/inicio'
+      fullPath: '/inicio'
+      preLoaderRoute: typeof InicioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/acesso-pendente': {
+      id: '/acesso-pendente'
+      path: '/acesso-pendente'
+      fullPath: '/acesso-pendente'
+      preLoaderRoute: typeof AcessoPendenteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/acesso': {
+      id: '/acesso'
+      path: '/acesso'
+      fullPath: '/acesso'
+      preLoaderRoute: typeof AcessoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -114,14 +221,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CrmIndexRouteImport
       parentRoute: typeof CrmRouteRoute
     }
+    '/crm/aprovacoes': {
+      id: '/crm/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/crm/aprovacoes'
+      preLoaderRoute: typeof CrmAprovacoesRouteImport
+      parentRoute: typeof CrmRouteRoute
+    }
   }
 }
 
 interface CrmRouteRouteChildren {
+  CrmAprovacoesRoute: typeof CrmAprovacoesRoute
   CrmIndexRoute: typeof CrmIndexRoute
 }
 
 const CrmRouteRouteChildren: CrmRouteRouteChildren = {
+  CrmAprovacoesRoute: CrmAprovacoesRoute,
   CrmIndexRoute: CrmIndexRoute,
 }
 
@@ -133,6 +249,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CrmRouteRoute: CrmRouteRouteWithChildren,
   AboutRoute: AboutRoute,
+  AcessoRoute: AcessoRoute,
+  AcessoPendenteRoute: AcessoPendenteRoute,
+  CadastroRoute: CadastroRoute,
+  InicioRoute: InicioRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
