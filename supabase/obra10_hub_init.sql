@@ -1,6 +1,11 @@
 -- =============================================================================
 -- Obra10+ HUB — init único (SQL Editor, role postgres, base vazia)
 -- =============================================================================
+-- ⚠ NÃO volte a executar este ficheiro inteiro se as tabelas já existem — obterá
+--   erro "relation already exists" (ex.: pipelines). Para alterações pontuais numa
+--   base já criada use os snippets em supabase/snippets/ (ex.:
+--   alter_profiles_opencnpj_payload.sql).
+-- =============================================================================
 -- · public.profiles: identidade (auth_subject sem FK a auth.*), role, aprovação.
 --   — Primeiro registo (finalize_registration): owner + approved.
 --   — Seguintes com pedido HUB: hub_admin + pending até o owner aprovar.
@@ -27,6 +32,7 @@ create table public.profiles (
   approval_status text not null default 'pending'
     check (approval_status in ('pending', 'approved', 'rejected')),
   metadata jsonb not null default '{}'::jsonb,
+  opencnpj_payload jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now (),
   updated_at timestamptz not null default now ()
 );

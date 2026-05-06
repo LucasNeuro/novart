@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseBrowserClient } from '../lib/supabase/client'
 import { isSupabaseConfigured, publicEnv } from '../lib/env'
 import Obra10Logo from '../components/Obra10Logo'
@@ -9,18 +10,23 @@ import {
   onlyDigits,
   type AddressForm,
   validateAddressStep,
+  validateCamposAdicionaisStep,
+  validateCredentialsStep,
+  validateEmpresaStep,
   validateFullRegistration,
   validatePasswordStrength,
-  validatePersonalStep,
 } from '../lib/auth/register-validation'
 import { resolvePostLoginNavigation } from '../lib/auth/post-login'
+import { cepDigits8, formatCepMask, lookupViaCep, type ViaCepSuccess } from '../lib/address/viacep'
+import {
+  lookupOpenCnpj,
+  mergeOpenCnpjIntoCadastroFields,
+  wrapOpenCnpjPayloadForStorage,
+} from '../lib/cnpj/opencnpj'
 
 export const Route = createFileRoute('/cadastro')({
   component: CadastroPage,
 })
-
-const IMG_PANEL =
-  'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=2000&q=80'
 
 const PENDING_REG_KEY = 'obra10_pending_registration_v1'
 
@@ -29,6 +35,10 @@ type PendingRegistration = {
   fullName: string
   cpf: string
   phone: string
+  companyCnpj?: string
+  companyName?: string
+  serviceScope?: string
+  opencnpjPayload?: Record<string, unknown> | null
   address: AddressForm
 }
 
@@ -43,15 +53,133 @@ const emptyAddress = (): AddressForm => ({
   country: 'Brasil',
 })
 
+/** Máscara 00.000.000/0000-00 */
+function formatCnpjMask(value: string): string {
+  const d = onlyDigits(value).slice(0, 14)
+  const parts: string[] = []
+  if (d.length > 0) parts.push(d.slice(0, Math.min(2, d.length)))
+  if (d.length > 2) parts.push(d.slice(2, Math.min(5, d.length)))
+  if (d.length > 5) parts.push(d.slice(5, Math.min(8, d.length)))
+  if (d.length > 8) parts.push(d.slice(8, Math.min(12, d.length)))
+  if (d.length > 12) parts.push(d.slice(12, 14))
+  if (parts.length <= 1) return parts[0] ?? ''
+  let out = parts[0]
+  out += '.' + parts[1]
+  if (parts[2]) out += '.' + parts[2]
+  if (parts[3]) out += '/' + parts[3]
+  if (parts[4]) out += '-' + parts[4]
+  return out
+}
+
+function mergeViaCepIntoAddress(prev: AddressForm, cep8: string, data: ViaCepSuccess): AddressForm {
+  const take = (current: string, incoming: string) =>
+    current.trim() ? current : incoming.trim()
+  const uf = data.uf.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2)
+  return {
+    ...prev,
+    postalCode: formatCepMask(cep8),
+    street: take(prev.street, data.logradouro),
+    complement: take(prev.complement, data.complemento),
+    district: take(prev.district, data.bairro),
+    city: take(prev.city, data.localidade),
+    state: take(prev.state, uf),
+  }
+}
+
+/** Evita nomes de API na mensagem mostrada ao utilizador (textos vêm do cliente HTTP). */
+function formatCnpjLookupErrorForUser(raw: string): string {
+  const m = raw
+    .replace(/\bConsulta\s+OpenCNPJ\s+falhou\b/gi, 'A consulta falhou')
+    .replace(/\bna\s+base\s+OpenCNPJ\b/gi, '')
+    .replace(/\ba\s+API\s+OpenCNPJ\b/gi, 'o serviço')
+    .replace(/\bda\s+API\s+OpenCNPJ\b/gi, 'da consulta')
+    .replace(/\bAPI\s+OpenCNPJ\b/gi, 'serviço')
+    .replace(/\bOpenCNPJ\b/gi, '')
+    .replace(/\s*\.\s*\./g, '.')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+\./g, '.')
+    .trim()
+  const collapsed = m.replace(/^[\s.,;:]+|[\s.,;:]+$/g, '')
+  return collapsed.length > 0 ? collapsed : 'Não foi possível consultar o CNPJ. Tente mais tarde.'
+}
+
 function friendlyRpcMessage(message: string): string {
   const m = message.toLowerCase()
   if (m.includes('cpf_invalid')) return 'CPF inválido. Confira os dígitos.'
   if (m.includes('phone_invalid')) return 'Telefone inválido.'
-  if (m.includes('address_incomplete')) return 'Morada incompleta. Preencha todos os campos obrigatórios.'
+  if (m.includes('address_incomplete'))
+    return 'Endereço incompleto. Preencha todos os campos obrigatórios (incluindo CEP com 8 dígitos).'
   if (m.includes('full_name')) return 'Nome completo demasiado curto.'
   if (m.includes('duplicate') || m.includes('unique')) return 'Dados já registados (e-mail ou CPF).'
   return message
 }
+
+async function mergeCadastroExtras(
+  supabase: SupabaseClient,
+  extras: {
+    companyCnpj: string
+    companyName: string
+    serviceScope: string
+    opencnpjPayload: Record<string, unknown> | null
+  },
+) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+  const { data: row } = await supabase
+    .from('profiles')
+    .select('metadata')
+    .eq('auth_subject', user.id)
+    .maybeSingle()
+  const meta =
+    row?.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+      ? { ...(row.metadata as Record<string, unknown>) }
+      : {}
+  meta.cadastro_empresa = {
+    cnpj: onlyDigits(extras.companyCnpj),
+    razao_social: extras.companyName.trim(),
+  }
+  if (extras.serviceScope.trim()) meta.cadastro_atuacao = extras.serviceScope.trim()
+
+  const patch: Record<string, unknown> = { metadata: meta }
+  if (extras.opencnpjPayload && Object.keys(extras.opencnpjPayload).length > 0) {
+    patch.opencnpj_payload = extras.opencnpjPayload
+  }
+
+  await supabase.from('profiles').update(patch).eq('auth_subject', user.id)
+}
+
+const TAB_LABELS_FULL = [
+  'Empresa',
+  'Endereço',
+  'Acesso',
+  'Atuação',
+  'Adicionais',
+] as const
+
+const TAB_LABELS_COMPLETE = ['Empresa', 'Endereço', 'Atuação', 'Adicionais'] as const
+
+const SECTION_TITLE_FULL = [
+  'Empresa',
+  'Endereço',
+  'Acesso',
+  'Atuação e serviços (obra / decoração)',
+  'Campos adicionais',
+] as const
+
+const SECTION_TITLE_COMPLETE = [
+  'Empresa',
+  'Endereço',
+  'Atuação e serviços (obra / decoração)',
+  'Campos adicionais',
+] as const
+
+const cadastroInputClass =
+  'mt-2 min-h-11 w-full rounded-none border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none ring-0 transition placeholder:text-neutral-400 focus:border-neutral-900 disabled:opacity-60 read-only:bg-neutral-50'
+
+const cadastroLabelClass =
+  'text-[11px] font-bold uppercase tracking-[0.12em] text-neutral-800'
 
 function CadastroPage() {
   const navigate = useNavigate()
@@ -59,9 +187,12 @@ function CadastroPage() {
   const [mode, setMode] = useState<'full' | 'complete'>('full')
   const [step, setStep] = useState(0)
   const [email, setEmail] = useState('')
+  const [companyCnpj, setCompanyCnpj] = useState('')
+  const [companyName, setCompanyName] = useState('')
   const [fullName, setFullName] = useState('')
   const [cpf, setCpf] = useState('')
   const [phone, setPhone] = useState('')
+  const [serviceScope, setServiceScope] = useState('')
   const [address, setAddress] = useState<AddressForm>(emptyAddress)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -71,17 +202,18 @@ function CadastroPage() {
   const [loading, setLoading] = useState(false)
   const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false)
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
+  const [cepLookupError, setCepLookupError] = useState<string | null>(null)
+  const [cepLookupLoading, setCepLookupLoading] = useState(false)
+  const [opencnpjPayload, setOpencnpjPayload] = useState<Record<string, unknown> | null>(null)
+  const [cnpjLookupError, setCnpjLookupError] = useState<string | null>(null)
+  const [cnpjLookupLoading, setCnpjLookupLoading] = useState(false)
   const configured = isSupabaseConfigured()
 
-  const lastStep = mode === 'complete' ? 1 : 2
+  const totalSteps = mode === 'full' ? 5 : 4
+  const lastStepIndex = totalSteps - 1
 
-  const stepLabels = useMemo(
-    () =>
-      mode === 'complete'
-        ? (['Dados pessoais', 'Morada'] as const)
-        : (['Dados pessoais', 'Morada', 'Acesso'] as const),
-    [mode],
-  )
+  const tabLabels = mode === 'full' ? TAB_LABELS_FULL : TAB_LABELS_COMPLETE
+  const sectionTitles = mode === 'full' ? SECTION_TITLE_FULL : SECTION_TITLE_COMPLETE
 
   useEffect(() => {
     let cancelled = false
@@ -110,6 +242,11 @@ function CadastroPage() {
             if (typeof p.fullName === 'string') setFullName(p.fullName)
             if (typeof p.cpf === 'string') setCpf(p.cpf)
             if (typeof p.phone === 'string') setPhone(p.phone)
+            if (typeof p.companyCnpj === 'string') setCompanyCnpj(p.companyCnpj)
+            if (typeof p.companyName === 'string') setCompanyName(p.companyName)
+            if (typeof p.serviceScope === 'string') setServiceScope(p.serviceScope)
+            if (p.opencnpjPayload && typeof p.opencnpjPayload === 'object')
+              setOpencnpjPayload(p.opencnpjPayload as Record<string, unknown>)
             if (p.address && typeof p.address === 'object') {
               setAddress({ ...emptyAddress(), ...p.address })
             }
@@ -125,12 +262,27 @@ function CadastroPage() {
     }
   }, [configured])
 
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    html.classList.add('cadastro-scroll-scope')
+    body.classList.add('cadastro-scroll-scope')
+    return () => {
+      html.classList.remove('cadastro-scroll-scope')
+      body.classList.remove('cadastro-scroll-scope')
+    }
+  }, [])
+
   const persistPendingRegistration = useCallback(() => {
     const payload: PendingRegistration = {
       email: email.trim().toLowerCase(),
       fullName,
       cpf,
       phone,
+      companyCnpj,
+      companyName,
+      serviceScope,
+      opencnpjPayload,
       address,
     }
     try {
@@ -138,7 +290,7 @@ function CadastroPage() {
     } catch {
       /* ignore */
     }
-  }, [email, fullName, cpf, phone, address])
+  }, [email, fullName, cpf, phone, companyCnpj, companyName, serviceScope, opencnpjPayload, address])
 
   const clearPendingRegistration = useCallback(() => {
     try {
@@ -175,24 +327,18 @@ function CadastroPage() {
     setError(null)
     setFieldErrors({})
     const v = validateFullRegistration(
-      { email, fullName, cpf, phone },
+      { email, phone, companyName, cnpj: companyCnpj },
+      { fullName, cpf },
       address,
       password,
       confirmPassword,
     )
     if (Object.keys(v).length > 0) {
       setFieldErrors(v as Record<string, string>)
-      const addrKeys: (keyof typeof v)[] = [
-        'street',
-        'number',
-        'district',
-        'city',
-        'state',
-        'postalCode',
-      ]
-      if (v.email || v.fullName || v.cpf || v.phone) setStep(0)
-      else if (addrKeys.some((k) => v[k])) setStep(1)
-      else setStep(2)
+      if (v.email || v.phone || v.companyName || v.cnpj) setStep(0)
+      else if (v.street || v.number || v.district || v.city || v.state || v.postalCode) setStep(1)
+      else if (v.password || v.confirmPassword) setStep(2)
+      else if (v.fullName || v.cpf) setStep(4)
       return
     }
     setLoading(true)
@@ -226,6 +372,12 @@ function CadastroPage() {
         setError(friendlyRpcMessage(finErr.message))
         return
       }
+      await mergeCadastroExtras(supabase, {
+        companyCnpj,
+        companyName,
+        serviceScope,
+        opencnpjPayload,
+      })
       await finishAndNavigate()
     } finally {
       setLoading(false)
@@ -235,6 +387,10 @@ function CadastroPage() {
     fullName,
     cpf,
     phone,
+    companyCnpj,
+    companyName,
+    serviceScope,
+    opencnpjPayload,
     address,
     password,
     confirmPassword,
@@ -247,31 +403,155 @@ function CadastroPage() {
     setError(null)
     setFieldErrors({})
     const v = {
-      ...validatePersonalStep({ email, fullName, cpf, phone }),
+      ...validateEmpresaStep({ email, phone, companyName, cnpj: companyCnpj }),
       ...validateAddressStep(address),
+      ...validateCamposAdicionaisStep({ fullName, cpf }),
     }
     if (Object.keys(v).length > 0) {
       setFieldErrors(v as Record<string, string>)
+      if (v.email || v.phone || v.companyName || v.cnpj) setStep(0)
+      else if (v.street || v.number || v.district || v.city || v.state || v.postalCode) setStep(1)
+      else if (v.fullName || v.cpf) setStep(3)
       return
     }
     setLoading(true)
     try {
+      const supabase = getSupabaseBrowserClient()
       const { error: finErr } = await callFinalize()
       if (finErr) {
         setError(friendlyRpcMessage(finErr.message))
         return
       }
+      await mergeCadastroExtras(supabase, {
+        companyCnpj,
+        companyName,
+        serviceScope,
+        opencnpjPayload,
+      })
       await finishAndNavigate()
     } finally {
       setLoading(false)
     }
-  }, [email, fullName, cpf, phone, address, callFinalize, finishAndNavigate])
+  }, [
+    email,
+    fullName,
+    cpf,
+    phone,
+    companyCnpj,
+    companyName,
+    serviceScope,
+    opencnpjPayload,
+    address,
+    callFinalize,
+    finishAndNavigate,
+  ])
+
+  const runCepLookup = useCallback(
+    async (opts: { fromBlur: boolean }) => {
+      const d = cepDigits8(address.postalCode)
+      if (d.length !== 8) {
+        if (!opts.fromBlur) {
+          setCepLookupError('Digite o CEP completo (8 dígitos) para buscar.')
+        }
+        return
+      }
+      setCepLookupError(null)
+      setCepLookupLoading(true)
+      try {
+        const result = await lookupViaCep(d)
+        if (!result.ok) {
+          setCepLookupError(result.message)
+          return
+        }
+        setAddress((prev) => mergeViaCepIntoAddress(prev, d, result.data))
+      } finally {
+        setCepLookupLoading(false)
+      }
+    },
+    [address.postalCode],
+  )
+
+  const onCepBlur = useCallback(() => {
+    const d = cepDigits8(address.postalCode)
+    if (d.length !== 8) return
+    void runCepLookup({ fromBlur: true })
+  }, [address.postalCode, runCepLookup])
+
+  const runOpenCnpjLookup = useCallback(async () => {
+    const d = onlyDigits(companyCnpj)
+    if (d.length !== 14) return
+    setCnpjLookupError(null)
+    setCnpjLookupLoading(true)
+    try {
+      const result = await lookupOpenCnpj(d)
+      if (!result.ok) {
+        setCnpjLookupError(formatCnpjLookupErrorForUser(result.message))
+        return
+      }
+      const wrapped = wrapOpenCnpjPayloadForStorage(result.data)
+      setOpencnpjPayload(wrapped)
+      const m = mergeOpenCnpjIntoCadastroFields(result.data, {
+        companyName,
+        email,
+        phone,
+        fullName,
+        address,
+      })
+      setCompanyName(m.companyName)
+      setEmail(m.email)
+      setPhone(m.phone)
+      setFullName(m.fullName)
+      setAddress(m.address)
+    } finally {
+      setCnpjLookupLoading(false)
+    }
+  }, [companyCnpj, companyName, email, phone, fullName, address])
+
+  const onCnpjBlur = useCallback(() => {
+    const d = onlyDigits(companyCnpj)
+    if (d.length !== 14) return
+    void runOpenCnpjLookup()
+  }, [companyCnpj, runOpenCnpjLookup])
 
   const goNext = useCallback(() => {
     setError(null)
     setFieldErrors({})
+    if (mode === 'full') {
+      if (step === 0) {
+        const v = validateEmpresaStep({ email, phone, companyName, cnpj: companyCnpj })
+        if (Object.keys(v).length > 0) {
+          setFieldErrors(v as Record<string, string>)
+          return
+        }
+        setStep(1)
+        return
+      }
+      if (step === 1) {
+        const v = validateAddressStep(address)
+        if (Object.keys(v).length > 0) {
+          setFieldErrors(v as Record<string, string>)
+          return
+        }
+        setStep(2)
+        return
+      }
+      if (step === 2) {
+        const v = validateCredentialsStep(password, confirmPassword)
+        if (Object.keys(v).length > 0) {
+          setFieldErrors(v as Record<string, string>)
+          return
+        }
+        setStep(3)
+        return
+      }
+      if (step === 3) {
+        setStep(4)
+        return
+      }
+      return
+    }
     if (step === 0) {
-      const v = validatePersonalStep({ email, fullName, cpf, phone })
+      const v = validateEmpresaStep({ email, phone, companyName, cnpj: companyCnpj })
       if (Object.keys(v).length > 0) {
         setFieldErrors(v as Record<string, string>)
         return
@@ -285,17 +565,29 @@ function CadastroPage() {
         setFieldErrors(v as Record<string, string>)
         return
       }
-      if (mode === 'complete') {
-        void submitComplete()
-        return
-      }
       setStep(2)
+      return
     }
-  }, [step, email, fullName, cpf, phone, address, mode, submitComplete])
+    if (step === 2) {
+      setStep(3)
+    }
+  }, [
+    mode,
+    step,
+    email,
+    phone,
+    companyName,
+    companyCnpj,
+    address,
+    password,
+    confirmPassword,
+  ])
 
   const goBack = useCallback(() => {
     setFieldErrors({})
     setError(null)
+    setCepLookupError(null)
+    setCnpjLookupError(null)
     setStep((s) => Math.max(0, s - 1))
   }, [])
 
@@ -309,129 +601,180 @@ function CadastroPage() {
     ]
   }, [password])
 
-  const showForm =
-    configured && !(mode === 'full' && awaitingEmailConfirm)
+  const showForm = configured && !(mode === 'full' && awaitingEmailConfirm)
+
+  const sectionTitle = sectionTitles[step] ?? ''
+
+  const primaryCtaLabel =
+    loading
+      ? 'A processar…'
+      : mode === 'full' && step === lastStepIndex
+        ? 'Registar'
+        : mode === 'complete' && step === lastStepIndex
+          ? 'Concluir cadastro'
+          : 'Continuar'
 
   return (
-    <div className="flex min-h-dvh min-h-[100dvh] w-full flex-col overflow-x-hidden bg-white lg:flex-row">
-      <aside className="login-auth-panel relative flex min-h-[min(38vh,280px)] w-full shrink-0 flex-col justify-between px-4 py-6 text-white sm:min-h-[260px] sm:px-8 sm:py-8 lg:min-h-dvh lg:w-[44%] lg:max-w-[560px] lg:px-10 lg:py-12">
-        <div
-          className="login-auth-photo"
-          style={{ backgroundImage: `url(${IMG_PANEL})` }}
-          role="img"
-          aria-label="Canteiro de obras"
-        />
-        <div className="login-auth-overlay" aria-hidden />
-        <div className="relative z-10">
+    <div className="flex min-h-dvh flex-col bg-neutral-100">
+      <header className="cadastro-auth-header fixed top-0 left-0 right-0 z-50 shrink-0 px-4 py-4 shadow-md sm:px-8">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4">
           <Link
             to="/"
-            className="inline-flex min-h-11 items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-white/90 no-underline transition hover:text-tertiary"
+            className="inline-flex min-h-10 items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/95 no-underline hover:text-tertiary"
           >
-            <span className="material-symbols-outlined text-xl text-tertiary" aria-hidden>
+            <span className="material-symbols-outlined text-lg text-tertiary" aria-hidden>
               arrow_back
             </span>
             Voltar ao site
           </Link>
-          <div className="mt-6 flex items-center sm:mt-10">
-            <Obra10Logo onDark heightClass="h-9 sm:h-10" />
-          </div>
-          <p className="mt-4 max-w-sm text-sm font-medium leading-relaxed text-white/85">
-            O primeiro registo torna-se <strong className="text-tertiary">owner</strong> do HUB. Os
-            seguintes pedidos ficam <strong className="text-tertiary">pendentes</strong> até
-            aprovação.
-          </p>
-          <p className="mt-3 max-w-sm text-xs leading-relaxed text-white/70">
-            Confirmar o e-mail só valida a conta; o acesso ao CRM para equipa segue as regras acima
-            (owner aprovado ou hub_admin após aprovação do owner).
-          </p>
+          <Obra10Logo onDark heightClass="h-8" />
+          <span className="hidden w-[5.5rem] sm:block" aria-hidden />
         </div>
-        <p className="relative z-10 mt-6 text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 lg:mt-0">
-          Uso autorizado · confidencial
-        </p>
-      </aside>
+      </header>
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col justify-center px-4 py-8 sm:px-8 lg:px-16">
-        <div className="mx-auto w-full max-w-[440px]">
-          <div className="border border-outline-variant/80 bg-surface/30 px-5 py-7 shadow-lg sm:px-10 sm:py-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-secondary">Cadastro</p>
-            <h2 className="mt-3 text-xl font-black tracking-tight text-primary sm:text-2xl">
-              {mode === 'complete' ? 'Complete o seu perfil' : 'Criar conta'}
-            </h2>
-            <p className="mt-4 text-xs font-medium leading-relaxed text-on-surface-variant">
-              {mode === 'complete'
-                ? 'Precisamos dos seus dados e da morada para activar o perfil no HUB.'
-                : 'Cadastro em passos: dados pessoais, morada e palavra-passe. ' + PASSWORD_RULES_HINT}
+      <main className="flex w-full flex-1 justify-center px-4 pb-10 pt-[5.25rem] sm:px-8 sm:pb-12 sm:pt-[5.5rem]">
+        <div className="w-full max-w-4xl py-4 sm:py-6">
+          <div className="border border-neutral-300 bg-white shadow-lg">
+            <div className="px-5 py-6 sm:px-10 sm:py-8">
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-neutral-500">Cadastro</p>
+          <h1 className="mt-2 text-2xl font-black tracking-tight text-neutral-950 sm:text-3xl">
+            {mode === 'complete' ? 'Complete o seu perfil' : 'Criar conta'}
+          </h1>
+
+          {!configured && (
+            <p className="mt-4 border border-amber-200 bg-amber-50/90 p-3 text-xs text-amber-950">
+              Configure <code className="text-[11px]">VITE_SUPABASE_URL</code> e{' '}
+              <code className="text-[11px]">VITE_SUPABASE_ANON_KEY</code> em{' '}
+              <code className="text-[11px]">.env.local</code>.
             </p>
+          )}
 
-            {mode === 'complete' || (mode === 'full' && !awaitingEmailConfirm) ? (
-              <div className="mt-5 flex gap-2" role="list" aria-label="Passos do cadastro">
-                {stepLabels.map((label, i) => (
+          {error && (
+            <p className="mt-4 break-words border border-red-200 bg-red-50/90 p-3 text-xs text-red-900">
+              {error}
+            </p>
+          )}
+
+          {mode === 'full' && awaitingEmailConfirm && pendingEmail ? (
+            <div className="mt-8 space-y-4 border border-neutral-300 bg-neutral-50 p-5 text-sm text-neutral-900">
+              <p className="font-bold">Confirme o seu e-mail</p>
+              <p className="text-xs leading-relaxed text-neutral-600">
+                Enviamos um link para <strong>{pendingEmail}</strong>. Abra a mensagem e confirme antes
+                de usar <strong>Entrar</strong>.
+              </p>
+              <p className="text-xs leading-relaxed text-neutral-600">
+                Os dados deste formulário ficaram guardados neste navegador para concluir o perfil após
+                confirmar o e-mail.
+              </p>
+              <Link
+                to="/login"
+                className="inline-flex min-h-11 items-center justify-center rounded-none border-2 border-primary bg-tertiary px-5 text-[10px] font-black uppercase tracking-[0.2em] text-white no-underline"
+              >
+                Ir para Entrar
+              </Link>
+            </div>
+          ) : null}
+
+          {showForm && (mode === 'complete' || (mode === 'full' && !awaitingEmailConfirm)) ? (
+            <>
+              <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+                Passo {step + 1} de {totalSteps}
+              </p>
+
+              <div
+                className="mt-3 flex flex-wrap border border-neutral-300 sm:flex-nowrap"
+                role="tablist"
+                aria-label="Etapas do cadastro"
+              >
+                {tabLabels.map((label, i) => (
                   <div
                     key={label}
-                    role="listitem"
-                    className={`flex-1 border-2 px-2 py-2 text-center text-[9px] font-black uppercase tracking-wider ${
+                    role="tab"
+                    aria-selected={i === step}
+                    className={`min-w-[20%] flex-1 border-b border-neutral-300 px-1 py-2.5 text-center text-[8px] font-bold uppercase leading-tight sm:border-b-0 sm:border-r sm:px-1.5 sm:py-3 sm:text-[9px] lg:text-[10px] ${
+                      i === tabLabels.length - 1 ? 'sm:border-r-0' : ''
+                    } ${
                       i === step
-                        ? 'border-tertiary bg-tertiary/10 text-primary'
+                        ? 'bg-neutral-900 text-white'
                         : i < step
-                          ? 'border-primary/40 text-on-surface-variant'
-                          : 'border-outline-variant/60 text-on-surface-variant/70'
-                    }`}
+                          ? 'bg-white text-neutral-600'
+                          : 'bg-white text-neutral-800'
+                    } `}
                   >
-                    {i + 1}. {label}
+                    <span className="tabular-nums">{i + 1}</span> {label}
                   </div>
                 ))}
               </div>
-            ) : null}
+            </>
+          ) : null}
 
-            {!configured && (
-              <p className="mt-4 border-2 border-primary/20 bg-white/80 p-3 text-xs text-primary">
-                Configure <code className="text-[11px]">VITE_SUPABASE_URL</code> e{' '}
-                <code className="text-[11px]">VITE_SUPABASE_ANON_KEY</code> em{' '}
-                <code className="text-[11px]">.env.local</code>.
-              </p>
-            )}
+          {showForm ? (
+            <form
+              className="mt-8 space-y-5"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (step === lastStepIndex) {
+                  if (mode === 'full') void submitFull()
+                  else void submitComplete()
+                } else goNext()
+              }}
+            >
+              <h2 className="border-b border-neutral-200 pb-3 text-xl font-black text-neutral-950">
+                {sectionTitle}
+              </h2>
 
-            {error && (
-              <p className="mt-4 break-words rounded-sm border-2 border-red-800/30 bg-red-50/90 p-3 text-xs text-red-900">
-                {error}
-              </p>
-            )}
-
-            {mode === 'full' && awaitingEmailConfirm && pendingEmail ? (
-              <div className="mt-8 space-y-4 rounded-sm border-2 border-primary/25 bg-white/90 p-4 text-sm text-primary">
-                <p className="font-bold">Confirme o seu e-mail</p>
-                <p className="text-xs leading-relaxed text-on-surface-variant">
-                  Enviamos um link para <strong className="text-primary">{pendingEmail}</strong>.
-                  Abra a mensagem e confirme antes de usar <strong>Entrar</strong>.
-                </p>
-                <p className="text-xs leading-relaxed text-on-surface-variant">
-                  Guardámos os dados deste formulário neste navegador: depois de confirmar e iniciar
-                  sessão, volte a esta página (ou faça login — será redireccionado) para concluir o
-                  perfil automaticamente com os dados preenchidos.
-                </p>
-                <Link
-                  to="/login"
-                  className="inline-flex min-h-11 items-center justify-center border-2 border-primary bg-tertiary px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white no-underline"
-                >
-                  Ir para Entrar
-                </Link>
-              </div>
-            ) : null}
-
-            {showForm ? (
-              <form
-                className="mt-8 space-y-5"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  if (mode === 'full' && step === lastStep) void submitFull()
-                  else goNext()
-                }}
-              >
-                {step === 0 ? (
-                  <>
+              {mode === 'full' && step === 0 || mode === 'complete' && step === 0 ? (
+                <>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>
+                      CNPJ <span className="text-red-600">*</span>
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={companyCnpj}
+                      onChange={(ev) => {
+                        setCnpjLookupError(null)
+                        setOpencnpjPayload(null)
+                        setCompanyCnpj(formatCnpjMask(ev.target.value))
+                      }}
+                      onBlur={() => void onCnpjBlur()}
+                      disabled={!configured || loading || cnpjLookupLoading}
+                      placeholder="00.000.000/0000-00"
+                      maxLength={18}
+                      autoComplete="off"
+                      className={cadastroInputClass + ' font-semibold tracking-wide'}
+                    />
+                    {fieldErrors.cnpj ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.cnpj}</span>
+                    ) : null}
+                    {cnpjLookupError ? (
+                      <span className="mt-1 block text-xs text-red-800">{cnpjLookupError}</span>
+                    ) : null}
+                  </label>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>
+                      Nome da empresa <span className="text-red-600">*</span>
+                    </span>
+                    <span className="mt-1 block text-[11px] font-medium normal-case tracking-normal text-neutral-500">
+                      Razão social ou nome fantasia
+                    </span>
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={(ev) => setCompanyName(ev.target.value)}
+                      disabled={!configured || loading}
+                      autoComplete="organization"
+                      className={cadastroInputClass}
+                    />
+                    {fieldErrors.companyName ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.companyName}</span>
+                    ) : null}
+                  </label>
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        E-mail
+                      <span className={cadastroLabelClass}>
+                        E-mail comercial <span className="text-red-600">*</span>
                       </span>
                       <input
                         type="email"
@@ -441,50 +784,15 @@ function CadastroPage() {
                         disabled={!configured || loading || mode === 'complete'}
                         readOnly={mode === 'complete'}
                         autoComplete="email"
-                        className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60 read-only:bg-black/[0.04]"
+                        className={cadastroInputClass}
                       />
                       {fieldErrors.email ? (
                         <span className="mt-1 block text-xs text-red-800">{fieldErrors.email}</span>
                       ) : null}
                     </label>
                     <label className="block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        Nome completo
-                      </span>
-                      <input
-                        type="text"
-                        required
-                        value={fullName}
-                        onChange={(ev) => setFullName(ev.target.value)}
-                        disabled={!configured || loading}
-                        autoComplete="name"
-                        className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                      />
-                      {fieldErrors.fullName ? (
-                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.fullName}</span>
-                      ) : null}
-                    </label>
-                    <label className="block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        CPF
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        value={cpf}
-                        onChange={(ev) => setCpf(ev.target.value)}
-                        disabled={!configured || loading}
-                        placeholder="000.000.000-00"
-                        className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                      />
-                      {fieldErrors.cpf ? (
-                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.cpf}</span>
-                      ) : null}
-                    </label>
-                    <label className="block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        Telefone (com DDD)
+                      <span className={cadastroLabelClass}>
+                        Telefone / WhatsApp <span className="text-red-600">*</span>
                       </span>
                       <input
                         type="tel"
@@ -494,262 +802,322 @@ function CadastroPage() {
                         disabled={!configured || loading}
                         autoComplete="tel"
                         placeholder="(11) 99999-0000"
-                        className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
+                        className={cadastroInputClass}
                       />
                       {fieldErrors.phone ? (
                         <span className="mt-1 block text-xs text-red-800">{fieldErrors.phone}</span>
                       ) : null}
                     </label>
-                  </>
-                ) : null}
+                  </div>
+                </>
+              ) : null}
 
-                {step === 1 ? (
-                  <>
-                    <label className="block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        Rua / logradouro
-                      </span>
-                      <input
-                        type="text"
-                        value={address.street}
-                        onChange={(ev) => setAddress((a) => ({ ...a, street: ev.target.value }))}
-                        disabled={!configured || loading}
-                        autoComplete="street-address"
-                        className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                      />
-                      {fieldErrors.street ? (
-                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.street}</span>
-                      ) : null}
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                          Número
-                        </span>
-                        <input
-                          type="text"
-                          value={address.number}
-                          onChange={(ev) => setAddress((a) => ({ ...a, number: ev.target.value }))}
-                          disabled={!configured || loading}
-                          className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                        />
-                        {fieldErrors.number ? (
-                          <span className="mt-1 block text-xs text-red-800">{fieldErrors.number}</span>
-                        ) : null}
-                      </label>
-                      <label className="block">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                          Complemento
-                        </span>
-                        <input
-                          type="text"
-                          value={address.complement}
-                          onChange={(ev) => setAddress((a) => ({ ...a, complement: ev.target.value }))}
-                          disabled={!configured || loading}
-                          className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                        />
-                      </label>
-                    </div>
-                    <label className="block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        Bairro
-                      </span>
-                      <input
-                        type="text"
-                        value={address.district}
-                        onChange={(ev) => setAddress((a) => ({ ...a, district: ev.target.value }))}
-                        disabled={!configured || loading}
-                        className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                      />
-                      {fieldErrors.district ? (
-                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.district}</span>
-                      ) : null}
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                          Cidade
-                        </span>
-                        <input
-                          type="text"
-                          value={address.city}
-                          onChange={(ev) => setAddress((a) => ({ ...a, city: ev.target.value }))}
-                          disabled={!configured || loading}
-                          autoComplete="address-level2"
-                          className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                        />
-                        {fieldErrors.city ? (
-                          <span className="mt-1 block text-xs text-red-800">{fieldErrors.city}</span>
-                        ) : null}
-                      </label>
-                      <label className="block">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                          UF
-                        </span>
-                        <input
-                          type="text"
-                          maxLength={2}
-                          value={address.state}
-                          onChange={(ev) =>
-                            setAddress((a) => ({
-                              ...a,
-                              state: ev.target.value.toUpperCase().replace(/[^a-zA-Z]/g, ''),
-                            }))
-                          }
-                          disabled={!configured || loading}
-                          autoComplete="address-level1"
-                          className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                        />
-                        {fieldErrors.state ? (
-                          <span className="mt-1 block text-xs text-red-800">{fieldErrors.state}</span>
-                        ) : null}
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                          CEP
-                        </span>
+              {mode === 'full' && step === 1 || mode === 'complete' && step === 1 ? (
+                <>
+                  <div className="border border-tertiary/40 bg-tertiary/[0.06] px-3 py-3 sm:px-4 sm:py-4">
+                    <p className={cadastroLabelClass + ' text-primary'}>CEP (ViaCEP)</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-neutral-600">
+                      8 dígitos — ao sair do campo ou em Buscar CEP, preenchemos rua, bairro, cidade e UF
+                      (campos vazios). Número e complemento são sempre seus.
+                    </p>
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <label className="block min-w-0 flex-1">
+                        <span className={cadastroLabelClass}>CEP</span>
                         <input
                           type="text"
                           inputMode="numeric"
                           value={address.postalCode}
-                          onChange={(ev) => setAddress((a) => ({ ...a, postalCode: ev.target.value }))}
-                          disabled={!configured || loading}
+                          onChange={(ev) => {
+                            setCepLookupError(null)
+                            setAddress((a) => ({
+                              ...a,
+                              postalCode: formatCepMask(ev.target.value),
+                            }))
+                          }}
+                          onBlur={() => void onCepBlur()}
+                          disabled={!configured || loading || cepLookupLoading}
                           autoComplete="postal-code"
                           placeholder="00000-000"
-                          className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
+                          maxLength={9}
+                          className={cadastroInputClass + ' mt-2 border-primary/40 font-semibold tracking-wide'}
                         />
                         {fieldErrors.postalCode ? (
                           <span className="mt-1 block text-xs text-red-800">{fieldErrors.postalCode}</span>
                         ) : null}
+                        {cepLookupError ? (
+                          <span className="mt-1 block text-xs text-red-800">{cepLookupError}</span>
+                        ) : null}
                       </label>
-                      <label className="block">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                          País
-                        </span>
-                        <input
-                          type="text"
-                          value={address.country}
-                          onChange={(ev) => setAddress((a) => ({ ...a, country: ev.target.value }))}
-                          disabled={!configured || loading}
-                          autoComplete="country-name"
-                          className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
-                        />
-                      </label>
+                      <button
+                        type="button"
+                        disabled={!configured || loading || cepLookupLoading}
+                        onClick={() => void runCepLookup({ fromBlur: false })}
+                        className="min-h-11 shrink-0 rounded-none border-2 border-neutral-900 bg-white px-4 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-900 transition hover:bg-neutral-100 disabled:opacity-50"
+                      >
+                        {cepLookupLoading ? 'A buscar…' : 'Buscar CEP'}
+                      </button>
                     </div>
-                  </>
-                ) : null}
+                  </div>
 
-                {mode === 'full' && step === 2 ? (
-                  <>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                      Requisitos da palavra-passe
-                    </p>
-                    <p className="text-xs text-on-surface-variant">{PASSWORD_RULES_HINT}</p>
-                    <ul className="mt-2 space-y-1 text-xs">
-                      {pwHints.map((h) => (
-                        <li
-                          key={h.label}
-                          className={h.ok ? 'text-green-800' : 'text-on-surface-variant/80'}
-                        >
-                          {h.ok ? '✓ ' : '○ '}
-                          {h.label}
-                        </li>
-                      ))}
-                    </ul>
-                    <label className="mt-4 block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        Palavra-passe
-                      </span>
-                      <div className="relative mt-2">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          required
-                          value={password}
-                          onChange={(ev) => setPassword(ev.target.value)}
-                          disabled={!configured || loading}
-                          autoComplete="new-password"
-                          className="min-h-11 w-full border-2 border-outline-variant bg-white py-2.5 pl-3.5 pr-12 text-sm outline-none disabled:opacity-60"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword((s) => !s)}
-                          className="absolute right-0 top-0 flex min-h-11 w-12 items-center justify-center text-on-surface-variant"
-                          aria-label={showPassword ? 'Ocultar' : 'Mostrar'}
-                        >
-                          <span className="material-symbols-outlined">
-                            {showPassword ? 'visibility_off' : 'visibility'}
-                          </span>
-                        </button>
-                      </div>
-                      {fieldErrors.password ? (
-                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.password}</span>
-                      ) : password.length > 0 && validatePasswordStrength(password) ? (
-                        <span className="mt-1 block text-xs text-amber-900">
-                          {validatePasswordStrength(password)}
-                        </span>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>Rua / logradouro</span>
+                    <input
+                      type="text"
+                      value={address.street}
+                      onChange={(ev) => setAddress((a) => ({ ...a, street: ev.target.value }))}
+                      disabled={!configured || loading}
+                      autoComplete="street-address"
+                      className={cadastroInputClass}
+                    />
+                    {fieldErrors.street ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.street}</span>
+                    ) : null}
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className={cadastroLabelClass}>Número</span>
+                      <input
+                        type="text"
+                        value={address.number}
+                        onChange={(ev) => setAddress((a) => ({ ...a, number: ev.target.value }))}
+                        disabled={!configured || loading}
+                        className={cadastroInputClass}
+                      />
+                      {fieldErrors.number ? (
+                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.number}</span>
                       ) : null}
                     </label>
                     <label className="block">
-                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-on-surface-variant">
-                        Confirmar palavra-passe
-                      </span>
+                      <span className={cadastroLabelClass}>Complemento</span>
+                      <input
+                        type="text"
+                        value={address.complement}
+                        onChange={(ev) => setAddress((a) => ({ ...a, complement: ev.target.value }))}
+                        disabled={!configured || loading}
+                        className={cadastroInputClass}
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>Bairro</span>
+                    <input
+                      type="text"
+                      value={address.district}
+                      onChange={(ev) => setAddress((a) => ({ ...a, district: ev.target.value }))}
+                      disabled={!configured || loading}
+                      className={cadastroInputClass}
+                    />
+                    {fieldErrors.district ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.district}</span>
+                    ) : null}
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className={cadastroLabelClass}>Cidade</span>
+                      <input
+                        type="text"
+                        value={address.city}
+                        onChange={(ev) => setAddress((a) => ({ ...a, city: ev.target.value }))}
+                        disabled={!configured || loading}
+                        autoComplete="address-level2"
+                        className={cadastroInputClass}
+                      />
+                      {fieldErrors.city ? (
+                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.city}</span>
+                      ) : null}
+                    </label>
+                    <label className="block">
+                      <span className={cadastroLabelClass}>UF</span>
+                      <input
+                        type="text"
+                        maxLength={2}
+                        value={address.state}
+                        onChange={(ev) =>
+                          setAddress((a) => ({
+                            ...a,
+                            state: ev.target.value.toUpperCase().replace(/[^a-zA-Z]/g, ''),
+                          }))
+                        }
+                        disabled={!configured || loading}
+                        autoComplete="address-level1"
+                        className={cadastroInputClass}
+                      />
+                      {fieldErrors.state ? (
+                        <span className="mt-1 block text-xs text-red-800">{fieldErrors.state}</span>
+                      ) : null}
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>País</span>
+                    <input
+                      type="text"
+                      value={address.country}
+                      onChange={(ev) => setAddress((a) => ({ ...a, country: ev.target.value }))}
+                      disabled={!configured || loading}
+                      autoComplete="country-name"
+                      className={cadastroInputClass}
+                    />
+                  </label>
+                </>
+              ) : null}
+
+              {mode === 'full' && step === 2 ? (
+                <>
+                  <p className={cadastroLabelClass + ' normal-case'}>Requisitos da palavra-passe</p>
+                  <p className="text-xs text-neutral-600">{PASSWORD_RULES_HINT}</p>
+                  <ul className="mt-2 space-y-1 text-xs">
+                    {pwHints.map((h) => (
+                      <li
+                        key={h.label}
+                        className={h.ok ? 'text-green-800' : 'text-neutral-500'}
+                      >
+                        {h.ok ? '✓ ' : '○ '}
+                        {h.label}
+                      </li>
+                    ))}
+                  </ul>
+                  <label className="mt-4 block">
+                    <span className={cadastroLabelClass}>Palavra-passe</span>
+                    <div className="relative mt-2">
                       <input
                         type={showPassword ? 'text' : 'password'}
                         required
-                        value={confirmPassword}
-                        onChange={(ev) => setConfirmPassword(ev.target.value)}
+                        value={password}
+                        onChange={(ev) => setPassword(ev.target.value)}
                         disabled={!configured || loading}
                         autoComplete="new-password"
-                        className="mt-2 min-h-11 w-full border-2 border-outline-variant bg-white px-3.5 py-2.5 text-sm outline-none disabled:opacity-60"
+                        className="min-h-11 w-full rounded-none border border-neutral-300 bg-white py-2.5 pl-3 pr-12 text-sm outline-none ring-0 focus:border-neutral-900 disabled:opacity-60"
                       />
-                      {fieldErrors.confirmPassword ? (
-                        <span className="mt-1 block text-xs text-red-800">
-                          {fieldErrors.confirmPassword}
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((s) => !s)}
+                        className="absolute right-0 top-0 flex min-h-11 w-12 items-center justify-center text-neutral-600"
+                        aria-label={showPassword ? 'Ocultar' : 'Mostrar'}
+                      >
+                        <span className="material-symbols-outlined">
+                          {showPassword ? 'visibility_off' : 'visibility'}
                         </span>
-                      ) : null}
-                    </label>
-                  </>
-                ) : null}
-
-                <div className="flex flex-wrap gap-3 pt-2">
-                  {step > 0 ? (
-                    <button
-                      type="button"
-                      onClick={goBack}
+                      </button>
+                    </div>
+                    {fieldErrors.password ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.password}</span>
+                    ) : password.length > 0 && validatePasswordStrength(password) ? (
+                      <span className="mt-1 block text-xs text-amber-900">
+                        {validatePasswordStrength(password)}
+                      </span>
+                    ) : null}
+                  </label>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>Confirmar palavra-passe</span>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={confirmPassword}
+                      onChange={(ev) => setConfirmPassword(ev.target.value)}
                       disabled={!configured || loading}
-                      className="min-h-12 flex-1 border-2 border-outline-variant bg-white py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-primary disabled:opacity-50"
-                    >
-                      Voltar
-                    </button>
-                  ) : null}
-                  <button
-                    type="submit"
-                    disabled={!configured || loading}
-                    className="min-h-12 flex-[2] border-2 border-primary bg-tertiary py-3.5 text-[10px] font-black uppercase tracking-[0.22em] text-white disabled:opacity-50"
-                  >
-                    {loading
-                      ? 'A processar…'
-                      : mode === 'full' && step === lastStep
-                        ? 'Registar'
-                        : mode === 'complete' && step === 1
-                          ? 'Concluir cadastro'
-                          : 'Seguinte'}
-                  </button>
-                </div>
-              </form>
-            ) : null}
+                      autoComplete="new-password"
+                      className={cadastroInputClass}
+                    />
+                    {fieldErrors.confirmPassword ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.confirmPassword}</span>
+                    ) : null}
+                  </label>
+                </>
+              ) : null}
 
-            <p className="mt-6 text-center text-xs text-on-surface-variant">
-              Já tem conta?{' '}
-              <Link to="/login" className="font-bold text-tertiary no-underline hover:underline">
-                Entrar
-              </Link>
-            </p>
+              {mode === 'full' && step === 3 || mode === 'complete' && step === 2 ? (
+                <label className="block">
+                  <span className={cadastroLabelClass}>
+                    Descreva a sua atuação e serviços <span className="text-neutral-400">(opcional)</span>
+                  </span>
+                  <textarea
+                    value={serviceScope}
+                    onChange={(ev) => setServiceScope(ev.target.value)}
+                    disabled={!configured || loading}
+                    rows={4}
+                    placeholder="Ex.: obras novas, remodelações, decoração, gestão de projectos…"
+                    className={cadastroInputClass + ' min-h-[120px] resize-y'}
+                  />
+                </label>
+              ) : null}
+
+              {mode === 'full' && step === 4 || mode === 'complete' && step === 3 ? (
+                <>
+                  <p className="text-xs leading-relaxed text-neutral-600">
+                    O HUB regista o <strong>responsável</strong> (pessoa física) na base — estes dados
+                    alimentam o <code className="text-[11px]">finalize_registration</code> (nome e CPF).
+                  </p>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>
+                      Nome completo do responsável <span className="text-red-600">*</span>
+                    </span>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(ev) => setFullName(ev.target.value)}
+                      disabled={!configured || loading}
+                      autoComplete="name"
+                      className={cadastroInputClass}
+                    />
+                    {fieldErrors.fullName ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.fullName}</span>
+                    ) : null}
+                  </label>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>
+                      CPF (responsável) <span className="text-red-600">*</span>
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={cpf}
+                      onChange={(ev) => setCpf(ev.target.value)}
+                      disabled={!configured || loading}
+                      placeholder="000.000.000-00"
+                      className={cadastroInputClass}
+                    />
+                    {fieldErrors.cpf ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.cpf}</span>
+                    ) : null}
+                  </label>
+                </>
+              ) : null}
+
+              <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                {step > 0 ? (
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    disabled={!configured || loading}
+                    className="min-h-11 rounded-none border border-neutral-400 bg-white px-6 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-900 disabled:opacity-50"
+                  >
+                    Voltar
+                  </button>
+                ) : (
+                  <span className="hidden sm:block" />
+                )}
+                <button
+                  type="submit"
+                  disabled={!configured || loading}
+                  className="min-h-12 w-full rounded-none bg-tertiary px-8 text-[11px] font-black uppercase tracking-[0.22em] text-white shadow-sm transition hover:opacity-95 disabled:opacity-50 sm:w-auto sm:min-w-[200px]"
+                >
+                  {primaryCtaLabel}
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          <p className="mt-8 text-center text-xs text-neutral-600">
+            Já tem conta?{' '}
+            <Link to="/login" className="font-bold text-tertiary no-underline hover:underline">
+              Entrar
+            </Link>
+          </p>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

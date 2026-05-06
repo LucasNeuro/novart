@@ -1,0 +1,239 @@
+<!--
+  Dashboard: Supabase → Authentication → Email Templates → template "Confirm sign up"
+  Assunto sugerido no campo Subject da mesma tela:
+  Obra10+ — Confirme o seu e-mail
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Confirme o seu e-mail — Obra10+</title>
+    <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+    <![endif]-->
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      width: 100% !important;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      background-color: #f7f9fb;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    "
+  >
+    <span
+      style="
+        display: none !important;
+        visibility: hidden;
+        mso-hide: all;
+        font-size: 1px;
+        line-height: 1px;
+        max-height: 0;
+        max-width: 0;
+        opacity: 0;
+        overflow: hidden;
+      "
+      >Confirme o endereço de e-mail da sua conta Obra10+.</span
+    >
+    <table
+      role="presentation"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      width="100%"
+      style="background-color: #f7f9fb; margin: 0; padding: 0"
+    >
+      <tr>
+        <td align="center" style="padding: 24px 12px 40px 12px">
+          <table
+            role="presentation"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            width="100%"
+            style="max-width: 600px; margin: 0 auto; border-collapse: collapse"
+          >
+            <!-- Header -->
+            <tr>
+              <td
+                style="
+                  background-color: #0b1622;
+                  border-bottom: 3px solid #22c55e;
+                  padding: 20px 24px;
+                "
+              >
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td align="left" style="vertical-align: middle">
+                      <div
+                        style="
+                          font-size: 20px;
+                          line-height: 1.2;
+                          font-weight: 900;
+                          letter-spacing: 0.08em;
+                          text-transform: uppercase;
+                          color: #ffffff;
+                          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                        "
+                      >
+                        OBRA10<span style="color: #22c55e">+</span>
+                      </div>
+                      <div
+                        style="
+                          margin-top: 6px;
+                          font-size: 11px;
+                          line-height: 1.4;
+                          font-weight: 700;
+                          letter-spacing: 0.18em;
+                          text-transform: uppercase;
+                          color: #c4c6cd;
+                          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                        "
+                      >
+                        Confirmação de conta
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- Body card -->
+            <tr>
+              <td style="background-color: #ffffff; padding: 0">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td style="padding: 28px 24px 8px 24px">
+                      <h1
+                        style="
+                          margin: 0 0 12px 0;
+                          font-size: 20px;
+                          line-height: 1.3;
+                          font-weight: 900;
+                          letter-spacing: 0.02em;
+                          text-transform: uppercase;
+                          color: #0b1622;
+                          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                        "
+                      >
+                        Confirme o seu e-mail
+                      </h1>
+                      <p
+                        style="
+                          margin: 0 0 16px 0;
+                          font-size: 15px;
+                          line-height: 1.55;
+                          color: #44474c;
+                          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                        "
+                      >
+                        Recebemos um pedido para criar uma conta Obra10+ com o endereço
+                        <span style="color: #191c1e; font-weight: 600">{{ .Email }}</span>. Para concluir o cadastro,
+                        confirme o e-mail no botão abaixo.
+                      </p>
+                      <p
+                        style="
+                          margin: 0 0 24px 0;
+                          font-size: 14px;
+                          line-height: 1.55;
+                          color: #44474c;
+                          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                        "
+                      >
+                        Se não foi você, pode ignorar esta mensagem com segurança.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="padding: 0 24px 28px 24px">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td align="center" bgcolor="#22c55e" style="border-radius: 0">
+                            <a
+                              href="{{ .ConfirmationURL }}"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style="
+                                display: inline-block;
+                                padding: 14px 22px;
+                                font-size: 13px;
+                                line-height: 1;
+                                font-weight: 800;
+                                letter-spacing: 0.12em;
+                                text-transform: uppercase;
+                                text-decoration: none;
+                                color: #0b1622;
+                                font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                              "
+                              >Confirmar e-mail</a
+                            >
+                          </td>
+                        </tr>
+                      </table>
+                      <p
+                        style="
+                          margin: 20px 0 0 0;
+                          font-size: 12px;
+                          line-height: 1.55;
+                          color: #74777d;
+                          font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                        "
+                      >
+                        Se o botão não funcionar, copie e cole este link no navegador:<br />
+                        <a
+                          href="{{ .ConfirmationURL }}"
+                          style="word-break: break-all; color: #0b1622; font-weight: 600"
+                          >{{ .ConfirmationURL }}</a
+                        >
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <!-- Footer -->
+            <tr>
+              <td style="padding: 20px 8px 0 8px">
+                <p
+                  style="
+                    margin: 0;
+                    font-size: 12px;
+                    line-height: 1.55;
+                    color: #74777d;
+                    text-align: center;
+                    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                  "
+                >
+                  <a href="{{ .SiteURL }}" style="color: #515f74; font-weight: 600; text-decoration: underline"
+                    >{{ .SiteURL }}</a
+                  >
+                </p>
+                <p
+                  style="
+                    margin: 10px 0 0 0;
+                    font-size: 11px;
+                    line-height: 1.5;
+                    color: #74777d;
+                    text-align: center;
+                    font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+                  "
+                >
+                  © Obra10+ · Este e-mail foi enviado automaticamente.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

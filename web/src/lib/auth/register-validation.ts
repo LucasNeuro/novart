@@ -10,6 +10,8 @@ export type RegisterFieldErrors = Partial<
     | 'phone'
     | 'password'
     | 'confirmPassword'
+    | 'cnpj'
+    | 'companyName'
     | 'street'
     | 'number'
     | 'district'
@@ -62,6 +64,27 @@ export function isValidBrPhone(phoneRaw: string): boolean {
   return p.length >= 10 && p.length <= 11
 }
 
+/** CNPJ brasileiro: 14 dígitos + verificadores. */
+export function isValidCnpj(cnpjRaw: string): boolean {
+  const c = onlyDigits(cnpjRaw)
+  if (c.length !== 14) return false
+  if (/^(\d)\1{13}$/.test(c)) return false
+
+  const w1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+  let sum = 0
+  for (let i = 0; i < 12; i++) sum += parseInt(c[i], 10) * w1[i]
+  let r = sum % 11
+  const d1 = r < 2 ? 0 : 11 - r
+  if (d1 !== parseInt(c[12], 10)) return false
+
+  const w2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+  sum = 0
+  for (let i = 0; i < 13; i++) sum += parseInt(c[i], 10) * w2[i]
+  r = sum % 11
+  const d2 = r < 2 ? 0 : 11 - r
+  return d2 === parseInt(c[13], 10)
+}
+
 /** Senha: mín. 8, maiúscula, minúscula, dígito e carácter especial. */
 export function validatePasswordStrength(password: string): string | null {
   if (password.length < 8) return 'Mínimo 8 caracteres.'
@@ -98,6 +121,40 @@ export function validatePersonalStep(input: {
   return errors
 }
 
+/** Passo empresa: CNPJ, razão social, e-mail e telefone comercial. */
+export function validateEmpresaStep(input: {
+  email: string
+  phone: string
+  companyName: string
+  cnpj: string
+}): RegisterFieldErrors {
+  const errors: RegisterFieldErrors = {}
+  const email = input.email.trim().toLowerCase()
+  if (!email) errors.email = 'Indique o e-mail comercial.'
+  else if (!EMAIL_RE.test(email)) errors.email = 'Formato de e-mail inválido.'
+
+  if (!isValidBrPhone(input.phone))
+    errors.phone = 'Telefone inválido. Use DDD + número (10 ou 11 dígitos).'
+
+  const company = input.companyName.trim()
+  if (company.length < 2) errors.companyName = 'Indique o nome da empresa (mín. 2 caracteres).'
+  else if (company.length > 160) errors.companyName = 'Nome da empresa demasiado longo.'
+
+  if (!isValidCnpj(input.cnpj)) errors.cnpj = 'CNPJ inválido. Confira os 14 dígitos.'
+
+  return errors
+}
+
+/** Responsável legal / titular — exigido pelo finalize_registration. */
+export function validateCamposAdicionaisStep(input: { fullName: string; cpf: string }): RegisterFieldErrors {
+  const errors: RegisterFieldErrors = {}
+  const fullName = input.fullName.trim()
+  if (fullName.length < 2) errors.fullName = 'Indique o nome completo do responsável.'
+  else if (fullName.length > 120) errors.fullName = 'Nome demasiado longo.'
+  if (!isValidCpf(input.cpf)) errors.cpf = 'CPF inválido. Use 11 dígitos válidos.'
+  return errors
+}
+
 export function validateAddressStep(a: AddressForm): RegisterFieldErrors {
   const errors: RegisterFieldErrors = {}
   const street = a.street.trim()
@@ -112,7 +169,11 @@ export function validateAddressStep(a: AddressForm): RegisterFieldErrors {
   if (district.length < 2) errors.district = 'Indique o bairro.'
   if (city.length < 2) errors.city = 'Indique a cidade.'
   if (state.length !== 2) errors.state = 'UF com 2 letras (ex.: SP).'
-  if (postal.length !== 8) errors.postalCode = 'CEP: 8 dígitos.'
+  if (postal.length !== 8)
+    errors.postalCode =
+      postal.length === 0
+        ? 'Indique o CEP (8 dígitos). Utilize Buscar CEP ou preencha manualmente.'
+        : 'CEP deve ter exatamente 8 dígitos.'
 
   return errors
 }
@@ -127,15 +188,17 @@ export function validateCredentialsStep(password: string, confirmPassword: strin
 
 /** Último passo: valida tudo antes de submeter. */
 export function validateFullRegistration(
-  personal: { email: string; fullName: string; cpf: string; phone: string },
+  empresa: { email: string; phone: string; companyName: string; cnpj: string },
+  campos: { fullName: string; cpf: string },
   address: AddressForm,
   password: string,
   confirmPassword: string,
 ): RegisterFieldErrors {
   return {
-    ...validatePersonalStep(personal),
+    ...validateEmpresaStep(empresa),
     ...validateAddressStep(address),
     ...validateCredentialsStep(password, confirmPassword),
+    ...validateCamposAdicionaisStep(campos),
   }
 }
 
