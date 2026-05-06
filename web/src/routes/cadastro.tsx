@@ -814,50 +814,33 @@ function CadastroPage() {
 
               {mode === 'full' && step === 1 || mode === 'complete' && step === 1 ? (
                 <>
-                  <div className="border border-tertiary/40 bg-tertiary/[0.06] px-3 py-3 sm:px-4 sm:py-4">
-                    <p className={cadastroLabelClass + ' text-primary'}>CEP (ViaCEP)</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-neutral-600">
-                      8 dígitos — ao sair do campo ou em Buscar CEP, preenchemos rua, bairro, cidade e UF
-                      (campos vazios). Número e complemento são sempre seus.
-                    </p>
-                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
-                      <label className="block min-w-0 flex-1">
-                        <span className={cadastroLabelClass}>CEP</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={address.postalCode}
-                          onChange={(ev) => {
-                            setCepLookupError(null)
-                            setAddress((a) => ({
-                              ...a,
-                              postalCode: formatCepMask(ev.target.value),
-                            }))
-                          }}
-                          onBlur={() => void onCepBlur()}
-                          disabled={!configured || loading || cepLookupLoading}
-                          autoComplete="postal-code"
-                          placeholder="00000-000"
-                          maxLength={9}
-                          className={cadastroInputClass + ' mt-2 border-primary/40 font-semibold tracking-wide'}
-                        />
-                        {fieldErrors.postalCode ? (
-                          <span className="mt-1 block text-xs text-red-800">{fieldErrors.postalCode}</span>
-                        ) : null}
-                        {cepLookupError ? (
-                          <span className="mt-1 block text-xs text-red-800">{cepLookupError}</span>
-                        ) : null}
-                      </label>
-                      <button
-                        type="button"
-                        disabled={!configured || loading || cepLookupLoading}
-                        onClick={() => void runCepLookup({ fromBlur: false })}
-                        className="min-h-11 shrink-0 rounded-none border-2 border-neutral-900 bg-white px-4 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-900 transition hover:bg-neutral-100 disabled:opacity-50"
-                      >
-                        {cepLookupLoading ? 'A buscar…' : 'Buscar CEP'}
-                      </button>
-                    </div>
-                  </div>
+                  <label className="block">
+                    <span className={cadastroLabelClass}>CEP</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={address.postalCode}
+                      onChange={(ev) => {
+                        setCepLookupError(null)
+                        setAddress((a) => ({
+                          ...a,
+                          postalCode: formatCepMask(ev.target.value),
+                        }))
+                      }}
+                      onBlur={() => void onCepBlur()}
+                      disabled={!configured || loading || cepLookupLoading}
+                      autoComplete="postal-code"
+                      placeholder="00000-000"
+                      maxLength={9}
+                      className={cadastroInputClass + ' font-semibold tracking-wide'}
+                    />
+                    {fieldErrors.postalCode ? (
+                      <span className="mt-1 block text-xs text-red-800">{fieldErrors.postalCode}</span>
+                    ) : null}
+                    {cepLookupError ? (
+                      <span className="mt-1 block text-xs text-red-800">{cepLookupError}</span>
+                    ) : null}
+                  </label>
 
                   <label className="block">
                     <span className={cadastroLabelClass}>Rua / logradouro</span>
