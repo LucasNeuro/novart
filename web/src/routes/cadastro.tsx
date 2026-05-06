@@ -72,17 +72,20 @@ function formatCnpjMask(value: string): string {
 }
 
 function mergeViaCepIntoAddress(prev: AddressForm, cep8: string, data: ViaCepSuccess): AddressForm {
-  const take = (current: string, incoming: string) =>
-    current.trim() ? current : incoming.trim()
+  const preferIncoming = (current: string, incoming: string) => {
+    const inc = incoming.trim()
+    return inc.length > 0 ? inc : current
+  }
   const uf = data.uf.trim().toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2)
   return {
     ...prev,
     postalCode: formatCepMask(cep8),
-    street: take(prev.street, data.logradouro),
-    complement: take(prev.complement, data.complemento),
-    district: take(prev.district, data.bairro),
-    city: take(prev.city, data.localidade),
-    state: take(prev.state, uf),
+    // Quando o CEP muda, priorizamos o retorno do ViaCEP para os campos de endereço.
+    street: preferIncoming(prev.street, data.logradouro),
+    complement: preferIncoming(prev.complement, data.complemento),
+    district: preferIncoming(prev.district, data.bairro),
+    city: preferIncoming(prev.city, data.localidade),
+    state: preferIncoming(prev.state, uf),
   }
 }
 
@@ -345,12 +348,18 @@ function CadastroPage() {
     try {
       const supabase = getSupabaseBrowserClient()
       const origin = publicEnv.appOrigin.trim().replace(/\/+$/, '')
+      if (!origin) {
+        setError(
+          'Defina VITE_APP_ORIGIN (URL pública da app) para o link de confirmação por e-mail. Ex.: https://app.seudominio.com',
+        )
+        return
+      }
       const { data: signData, error: signErr } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
           data: { full_name: fullName.trim() },
-          ...(origin ? { emailRedirectTo: `${origin}/login` } : {}),
+          emailRedirectTo: `${origin}/login`,
         },
       })
       if (signErr) {
