@@ -18,6 +18,12 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as CrmRouteRouteImport } from './routes/crm/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CrmIndexRouteImport } from './routes/crm/index'
+import { Route as CrmServicosRouteImport } from './routes/crm/servicos'
+import { Route as CrmProdutosRouteImport } from './routes/crm/produtos'
+import { Route as CrmImobiliariaRouteImport } from './routes/crm/imobiliaria'
+import { Route as CrmGeralRouteImport } from './routes/crm/geral'
+import { Route as CrmConfiguracoesRouteImport } from './routes/crm/configuracoes'
+import { Route as CrmArquiteturaRouteImport } from './routes/crm/arquitetura'
 import { Route as CrmAprovacoesRouteImport } from './routes/crm/aprovacoes'
 
 const LoginRoute = LoginRouteImport.update({
@@ -65,6 +71,36 @@ const CrmIndexRoute = CrmIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CrmRouteRoute,
 } as any)
+const CrmServicosRoute = CrmServicosRouteImport.update({
+  id: '/servicos',
+  path: '/servicos',
+  getParentRoute: () => CrmRouteRoute,
+} as any)
+const CrmProdutosRoute = CrmProdutosRouteImport.update({
+  id: '/produtos',
+  path: '/produtos',
+  getParentRoute: () => CrmRouteRoute,
+} as any)
+const CrmImobiliariaRoute = CrmImobiliariaRouteImport.update({
+  id: '/imobiliaria',
+  path: '/imobiliaria',
+  getParentRoute: () => CrmRouteRoute,
+} as any)
+const CrmGeralRoute = CrmGeralRouteImport.update({
+  id: '/geral',
+  path: '/geral',
+  getParentRoute: () => CrmRouteRoute,
+} as any)
+const CrmConfiguracoesRoute = CrmConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => CrmRouteRoute,
+} as any)
+const CrmArquiteturaRoute = CrmArquiteturaRouteImport.update({
+  id: '/arquitetura',
+  path: '/arquitetura',
+  getParentRoute: () => CrmRouteRoute,
+} as any)
 const CrmAprovacoesRoute = CrmAprovacoesRouteImport.update({
   id: '/aprovacoes',
   path: '/aprovacoes',
@@ -81,6 +117,12 @@ export interface FileRoutesByFullPath {
   '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
   '/crm/aprovacoes': typeof CrmAprovacoesRoute
+  '/crm/arquitetura': typeof CrmArquiteturaRoute
+  '/crm/configuracoes': typeof CrmConfiguracoesRoute
+  '/crm/geral': typeof CrmGeralRoute
+  '/crm/imobiliaria': typeof CrmImobiliariaRoute
+  '/crm/produtos': typeof CrmProdutosRoute
+  '/crm/servicos': typeof CrmServicosRoute
   '/crm/': typeof CrmIndexRoute
 }
 export interface FileRoutesByTo {
@@ -92,6 +134,12 @@ export interface FileRoutesByTo {
   '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
   '/crm/aprovacoes': typeof CrmAprovacoesRoute
+  '/crm/arquitetura': typeof CrmArquiteturaRoute
+  '/crm/configuracoes': typeof CrmConfiguracoesRoute
+  '/crm/geral': typeof CrmGeralRoute
+  '/crm/imobiliaria': typeof CrmImobiliariaRoute
+  '/crm/produtos': typeof CrmProdutosRoute
+  '/crm/servicos': typeof CrmServicosRoute
   '/crm': typeof CrmIndexRoute
 }
 export interface FileRoutesById {
@@ -105,6 +153,12 @@ export interface FileRoutesById {
   '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
   '/crm/aprovacoes': typeof CrmAprovacoesRoute
+  '/crm/arquitetura': typeof CrmArquiteturaRoute
+  '/crm/configuracoes': typeof CrmConfiguracoesRoute
+  '/crm/geral': typeof CrmGeralRoute
+  '/crm/imobiliaria': typeof CrmImobiliariaRoute
+  '/crm/produtos': typeof CrmProdutosRoute
+  '/crm/servicos': typeof CrmServicosRoute
   '/crm/': typeof CrmIndexRoute
 }
 export interface FileRouteTypes {
@@ -119,6 +173,12 @@ export interface FileRouteTypes {
     | '/inicio'
     | '/login'
     | '/crm/aprovacoes'
+    | '/crm/arquitetura'
+    | '/crm/configuracoes'
+    | '/crm/geral'
+    | '/crm/imobiliaria'
+    | '/crm/produtos'
+    | '/crm/servicos'
     | '/crm/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -130,6 +190,12 @@ export interface FileRouteTypes {
     | '/inicio'
     | '/login'
     | '/crm/aprovacoes'
+    | '/crm/arquitetura'
+    | '/crm/configuracoes'
+    | '/crm/geral'
+    | '/crm/imobiliaria'
+    | '/crm/produtos'
+    | '/crm/servicos'
     | '/crm'
   id:
     | '__root__'
@@ -142,6 +208,12 @@ export interface FileRouteTypes {
     | '/inicio'
     | '/login'
     | '/crm/aprovacoes'
+    | '/crm/arquitetura'
+    | '/crm/configuracoes'
+    | '/crm/geral'
+    | '/crm/imobiliaria'
+    | '/crm/produtos'
+    | '/crm/servicos'
     | '/crm/'
   fileRoutesById: FileRoutesById
 }
@@ -221,6 +293,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CrmIndexRouteImport
       parentRoute: typeof CrmRouteRoute
     }
+    '/crm/servicos': {
+      id: '/crm/servicos'
+      path: '/servicos'
+      fullPath: '/crm/servicos'
+      preLoaderRoute: typeof CrmServicosRouteImport
+      parentRoute: typeof CrmRouteRoute
+    }
+    '/crm/produtos': {
+      id: '/crm/produtos'
+      path: '/produtos'
+      fullPath: '/crm/produtos'
+      preLoaderRoute: typeof CrmProdutosRouteImport
+      parentRoute: typeof CrmRouteRoute
+    }
+    '/crm/imobiliaria': {
+      id: '/crm/imobiliaria'
+      path: '/imobiliaria'
+      fullPath: '/crm/imobiliaria'
+      preLoaderRoute: typeof CrmImobiliariaRouteImport
+      parentRoute: typeof CrmRouteRoute
+    }
+    '/crm/geral': {
+      id: '/crm/geral'
+      path: '/geral'
+      fullPath: '/crm/geral'
+      preLoaderRoute: typeof CrmGeralRouteImport
+      parentRoute: typeof CrmRouteRoute
+    }
+    '/crm/configuracoes': {
+      id: '/crm/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/crm/configuracoes'
+      preLoaderRoute: typeof CrmConfiguracoesRouteImport
+      parentRoute: typeof CrmRouteRoute
+    }
+    '/crm/arquitetura': {
+      id: '/crm/arquitetura'
+      path: '/arquitetura'
+      fullPath: '/crm/arquitetura'
+      preLoaderRoute: typeof CrmArquiteturaRouteImport
+      parentRoute: typeof CrmRouteRoute
+    }
     '/crm/aprovacoes': {
       id: '/crm/aprovacoes'
       path: '/aprovacoes'
@@ -233,11 +347,23 @@ declare module '@tanstack/react-router' {
 
 interface CrmRouteRouteChildren {
   CrmAprovacoesRoute: typeof CrmAprovacoesRoute
+  CrmArquiteturaRoute: typeof CrmArquiteturaRoute
+  CrmConfiguracoesRoute: typeof CrmConfiguracoesRoute
+  CrmGeralRoute: typeof CrmGeralRoute
+  CrmImobiliariaRoute: typeof CrmImobiliariaRoute
+  CrmProdutosRoute: typeof CrmProdutosRoute
+  CrmServicosRoute: typeof CrmServicosRoute
   CrmIndexRoute: typeof CrmIndexRoute
 }
 
 const CrmRouteRouteChildren: CrmRouteRouteChildren = {
   CrmAprovacoesRoute: CrmAprovacoesRoute,
+  CrmArquiteturaRoute: CrmArquiteturaRoute,
+  CrmConfiguracoesRoute: CrmConfiguracoesRoute,
+  CrmGeralRoute: CrmGeralRoute,
+  CrmImobiliariaRoute: CrmImobiliariaRoute,
+  CrmProdutosRoute: CrmProdutosRoute,
+  CrmServicosRoute: CrmServicosRoute,
   CrmIndexRoute: CrmIndexRoute,
 }
 

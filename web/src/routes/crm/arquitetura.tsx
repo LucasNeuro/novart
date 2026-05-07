@@ -1,16 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import CrmSectionPlaceholder from '../../components/crm/CrmSectionPlaceholder'
+import CrmBoardPage from '../../components/crm/CrmBoardPage'
 
 export const Route = createFileRoute('/crm/arquitetura')({
   component: CrmArquiteturaPage,
 })
 
 function CrmArquiteturaPage() {
-  return (
-    <CrmSectionPlaceholder
-      eyebrow="Arquitetura"
-      title="Pipeline de arquitetura"
-      description="Area reservada para briefing tecnico, estudos preliminares e acompanhamento das etapas de projeto."
-    />
-  )
+  return <CrmBoardPage segment="arquitetura" />
 }
