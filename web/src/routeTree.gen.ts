@@ -9,31 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as InicioRouteImport } from './routes/inicio'
 import { Route as CadastroRouteImport } from './routes/cadastro'
-import { Route as AcessoPendenteRouteImport } from './routes/acesso-pendente'
-import { Route as AcessoRouteImport } from './routes/acesso'
-import { Route as AboutRouteImport } from './routes/about'
-import { Route as CrmRouteRouteImport } from './routes/crm/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as CrmIndexRouteImport } from './routes/crm/index'
-import { Route as CrmServicosRouteImport } from './routes/crm/servicos'
-import { Route as CrmProdutosRouteImport } from './routes/crm/produtos'
-import { Route as CrmImobiliariaRouteImport } from './routes/crm/imobiliaria'
-import { Route as CrmGeralRouteImport } from './routes/crm/geral'
-import { Route as CrmConfiguracoesRouteImport } from './routes/crm/configuracoes'
-import { Route as CrmArquiteturaRouteImport } from './routes/crm/arquitetura'
-import { Route as CrmAprovacoesRouteImport } from './routes/crm/aprovacoes'
 
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InicioRoute = InicioRouteImport.update({
-  id: '/inicio',
-  path: '/inicio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CadastroRoute = CadastroRouteImport.update({
@@ -41,207 +29,60 @@ const CadastroRoute = CadastroRouteImport.update({
   path: '/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AcessoPendenteRoute = AcessoPendenteRouteImport.update({
-  id: '/acesso-pendente',
-  path: '/acesso-pendente',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AcessoRoute = AcessoRouteImport.update({
-  id: '/acesso',
-  path: '/acesso',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CrmRouteRoute = CrmRouteRouteImport.update({
-  id: '/crm',
-  path: '/crm',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CrmIndexRoute = CrmIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
-const CrmServicosRoute = CrmServicosRouteImport.update({
-  id: '/servicos',
-  path: '/servicos',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
-const CrmProdutosRoute = CrmProdutosRouteImport.update({
-  id: '/produtos',
-  path: '/produtos',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
-const CrmImobiliariaRoute = CrmImobiliariaRouteImport.update({
-  id: '/imobiliaria',
-  path: '/imobiliaria',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
-const CrmGeralRoute = CrmGeralRouteImport.update({
-  id: '/geral',
-  path: '/geral',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
-const CrmConfiguracoesRoute = CrmConfiguracoesRouteImport.update({
-  id: '/configuracoes',
-  path: '/configuracoes',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
-const CrmArquiteturaRoute = CrmArquiteturaRouteImport.update({
-  id: '/arquitetura',
-  path: '/arquitetura',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
-const CrmAprovacoesRoute = CrmAprovacoesRouteImport.update({
-  id: '/aprovacoes',
-  path: '/aprovacoes',
-  getParentRoute: () => CrmRouteRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/crm': typeof CrmRouteRouteWithChildren
-  '/about': typeof AboutRoute
-  '/acesso': typeof AcessoRoute
-  '/acesso-pendente': typeof AcessoPendenteRoute
   '/cadastro': typeof CadastroRoute
-  '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
-  '/crm/aprovacoes': typeof CrmAprovacoesRoute
-  '/crm/arquitetura': typeof CrmArquiteturaRoute
-  '/crm/configuracoes': typeof CrmConfiguracoesRoute
-  '/crm/geral': typeof CrmGeralRoute
-  '/crm/imobiliaria': typeof CrmImobiliariaRoute
-  '/crm/produtos': typeof CrmProdutosRoute
-  '/crm/servicos': typeof CrmServicosRoute
-  '/crm/': typeof CrmIndexRoute
+  '/portal': typeof PortalRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/acesso': typeof AcessoRoute
-  '/acesso-pendente': typeof AcessoPendenteRoute
   '/cadastro': typeof CadastroRoute
-  '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
-  '/crm/aprovacoes': typeof CrmAprovacoesRoute
-  '/crm/arquitetura': typeof CrmArquiteturaRoute
-  '/crm/configuracoes': typeof CrmConfiguracoesRoute
-  '/crm/geral': typeof CrmGeralRoute
-  '/crm/imobiliaria': typeof CrmImobiliariaRoute
-  '/crm/produtos': typeof CrmProdutosRoute
-  '/crm/servicos': typeof CrmServicosRoute
-  '/crm': typeof CrmIndexRoute
+  '/portal': typeof PortalRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/crm': typeof CrmRouteRouteWithChildren
-  '/about': typeof AboutRoute
-  '/acesso': typeof AcessoRoute
-  '/acesso-pendente': typeof AcessoPendenteRoute
   '/cadastro': typeof CadastroRoute
-  '/inicio': typeof InicioRoute
   '/login': typeof LoginRoute
-  '/crm/aprovacoes': typeof CrmAprovacoesRoute
-  '/crm/arquitetura': typeof CrmArquiteturaRoute
-  '/crm/configuracoes': typeof CrmConfiguracoesRoute
-  '/crm/geral': typeof CrmGeralRoute
-  '/crm/imobiliaria': typeof CrmImobiliariaRoute
-  '/crm/produtos': typeof CrmProdutosRoute
-  '/crm/servicos': typeof CrmServicosRoute
-  '/crm/': typeof CrmIndexRoute
+  '/portal': typeof PortalRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/crm'
-    | '/about'
-    | '/acesso'
-    | '/acesso-pendente'
-    | '/cadastro'
-    | '/inicio'
-    | '/login'
-    | '/crm/aprovacoes'
-    | '/crm/arquitetura'
-    | '/crm/configuracoes'
-    | '/crm/geral'
-    | '/crm/imobiliaria'
-    | '/crm/produtos'
-    | '/crm/servicos'
-    | '/crm/'
+  fullPaths: '/' | '/cadastro' | '/login' | '/portal'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/about'
-    | '/acesso'
-    | '/acesso-pendente'
-    | '/cadastro'
-    | '/inicio'
-    | '/login'
-    | '/crm/aprovacoes'
-    | '/crm/arquitetura'
-    | '/crm/configuracoes'
-    | '/crm/geral'
-    | '/crm/imobiliaria'
-    | '/crm/produtos'
-    | '/crm/servicos'
-    | '/crm'
-  id:
-    | '__root__'
-    | '/'
-    | '/crm'
-    | '/about'
-    | '/acesso'
-    | '/acesso-pendente'
-    | '/cadastro'
-    | '/inicio'
-    | '/login'
-    | '/crm/aprovacoes'
-    | '/crm/arquitetura'
-    | '/crm/configuracoes'
-    | '/crm/geral'
-    | '/crm/imobiliaria'
-    | '/crm/produtos'
-    | '/crm/servicos'
-    | '/crm/'
+  to: '/' | '/cadastro' | '/login' | '/portal'
+  id: '__root__' | '/' | '/cadastro' | '/login' | '/portal'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CrmRouteRoute: typeof CrmRouteRouteWithChildren
-  AboutRoute: typeof AboutRoute
-  AcessoRoute: typeof AcessoRoute
-  AcessoPendenteRoute: typeof AcessoPendenteRoute
   CadastroRoute: typeof CadastroRoute
-  InicioRoute: typeof InicioRoute
   LoginRoute: typeof LoginRoute
+  PortalRoute: typeof PortalRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/inicio': {
-      id: '/inicio'
-      path: '/inicio'
-      fullPath: '/inicio'
-      preLoaderRoute: typeof InicioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cadastro': {
@@ -251,34 +92,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/acesso-pendente': {
-      id: '/acesso-pendente'
-      path: '/acesso-pendente'
-      fullPath: '/acesso-pendente'
-      preLoaderRoute: typeof AcessoPendenteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/acesso': {
-      id: '/acesso'
-      path: '/acesso'
-      fullPath: '/acesso'
-      preLoaderRoute: typeof AcessoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/crm': {
-      id: '/crm'
-      path: '/crm'
-      fullPath: '/crm'
-      preLoaderRoute: typeof CrmRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -286,100 +99,14 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/crm/': {
-      id: '/crm/'
-      path: '/'
-      fullPath: '/crm/'
-      preLoaderRoute: typeof CrmIndexRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
-    '/crm/servicos': {
-      id: '/crm/servicos'
-      path: '/servicos'
-      fullPath: '/crm/servicos'
-      preLoaderRoute: typeof CrmServicosRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
-    '/crm/produtos': {
-      id: '/crm/produtos'
-      path: '/produtos'
-      fullPath: '/crm/produtos'
-      preLoaderRoute: typeof CrmProdutosRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
-    '/crm/imobiliaria': {
-      id: '/crm/imobiliaria'
-      path: '/imobiliaria'
-      fullPath: '/crm/imobiliaria'
-      preLoaderRoute: typeof CrmImobiliariaRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
-    '/crm/geral': {
-      id: '/crm/geral'
-      path: '/geral'
-      fullPath: '/crm/geral'
-      preLoaderRoute: typeof CrmGeralRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
-    '/crm/configuracoes': {
-      id: '/crm/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/crm/configuracoes'
-      preLoaderRoute: typeof CrmConfiguracoesRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
-    '/crm/arquitetura': {
-      id: '/crm/arquitetura'
-      path: '/arquitetura'
-      fullPath: '/crm/arquitetura'
-      preLoaderRoute: typeof CrmArquiteturaRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
-    '/crm/aprovacoes': {
-      id: '/crm/aprovacoes'
-      path: '/aprovacoes'
-      fullPath: '/crm/aprovacoes'
-      preLoaderRoute: typeof CrmAprovacoesRouteImport
-      parentRoute: typeof CrmRouteRoute
-    }
   }
 }
 
-interface CrmRouteRouteChildren {
-  CrmAprovacoesRoute: typeof CrmAprovacoesRoute
-  CrmArquiteturaRoute: typeof CrmArquiteturaRoute
-  CrmConfiguracoesRoute: typeof CrmConfiguracoesRoute
-  CrmGeralRoute: typeof CrmGeralRoute
-  CrmImobiliariaRoute: typeof CrmImobiliariaRoute
-  CrmProdutosRoute: typeof CrmProdutosRoute
-  CrmServicosRoute: typeof CrmServicosRoute
-  CrmIndexRoute: typeof CrmIndexRoute
-}
-
-const CrmRouteRouteChildren: CrmRouteRouteChildren = {
-  CrmAprovacoesRoute: CrmAprovacoesRoute,
-  CrmArquiteturaRoute: CrmArquiteturaRoute,
-  CrmConfiguracoesRoute: CrmConfiguracoesRoute,
-  CrmGeralRoute: CrmGeralRoute,
-  CrmImobiliariaRoute: CrmImobiliariaRoute,
-  CrmProdutosRoute: CrmProdutosRoute,
-  CrmServicosRoute: CrmServicosRoute,
-  CrmIndexRoute: CrmIndexRoute,
-}
-
-const CrmRouteRouteWithChildren = CrmRouteRoute._addFileChildren(
-  CrmRouteRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CrmRouteRoute: CrmRouteRouteWithChildren,
-  AboutRoute: AboutRoute,
-  AcessoRoute: AcessoRoute,
-  AcessoPendenteRoute: AcessoPendenteRoute,
   CadastroRoute: CadastroRoute,
-  InicioRoute: InicioRoute,
   LoginRoute: LoginRoute,
+  PortalRoute: PortalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -79,8 +79,8 @@ function LoginPage() {
           return
         }
 
-        if (nav.isHubAdmin) {
-          await queryClient.invalidateQueries({ queryKey: queryKeys.triageLeads })
+        if (nav.path.startsWith('/portal')) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.portalBoard })
         }
         await router.invalidate()
         await navigate({ to: nav.path })
@@ -137,9 +137,8 @@ function LoginPage() {
               Bem-vindo de volta
             </h2>
             <p className="mt-4 text-xs font-medium leading-relaxed text-on-surface-variant">
-              Inicie sessão com o e-mail registado no Supabase. Contas com perfil de{' '}
-              <strong className="text-primary">administrador HUB</strong> acedem ao CRM; as demais
-              são direcionadas para a área de cliente com os acessos permitidos.
+              Inicie sessão com o e-mail registado no Supabase. Após autenticar, você entra no portal
+              operacional com dashboards e CRM Kanban.
             </p>
 
             {!configured && (
@@ -215,11 +214,6 @@ function LoginPage() {
               Novo utilizador?{' '}
               <Link to="/cadastro" className="font-bold text-tertiary no-underline hover:underline">
                 Criar conta
-              </Link>
-              {' · '}
-              Precisa de contexto?{' '}
-              <Link to="/about" className="font-bold text-tertiary no-underline hover:underline">
-                Conheça a Obra10+
               </Link>
             </p>
         </div>

@@ -5,8 +5,8 @@ export type PostLoginNavigation =
   | { ok: false; message: string; signOut: boolean }
 
 /**
- * Após login: CRM para equipa HUB aprovada; pendente/rejeitado tratados à parte;
- * cliente → /acesso; sem perfil → completar cadastro.
+ * Após login, direciona para o novo portal operacional.
+ * Mantém cadastro como fallback quando perfil ainda não existe.
  */
 export async function resolvePostLoginNavigation(
   supabase: Parameters<typeof checkHubAdminAccess>[0],
@@ -15,18 +15,18 @@ export async function resolvePostLoginNavigation(
   const access = await checkHubAdminAccess(supabase)
 
   if (access.ok) {
-    if (requestedRedirect?.startsWith('/crm')) {
+    if (requestedRedirect?.startsWith('/portal')) {
       return { ok: true, path: requestedRedirect, isHubAdmin: true }
     }
-    return { ok: true, path: '/crm', isHubAdmin: true }
+    return { ok: true, path: '/portal', isHubAdmin: true }
   }
 
   if (access.reason === 'not_hub_admin') {
-    return { ok: true, path: '/acesso', isHubAdmin: false }
+    return { ok: true, path: '/portal', isHubAdmin: false }
   }
 
   if (access.reason === 'pending_approval') {
-    return { ok: true, path: '/acesso-pendente', isHubAdmin: false }
+    return { ok: true, path: '/portal', isHubAdmin: false }
   }
 
   if (access.reason === 'no_profile') {

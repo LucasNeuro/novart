@@ -34,13 +34,12 @@ export default function Header() {
           >
             Plataforma
           </a>
-          <Link
-            to="/about"
+          <a
+            href="/#plataforma"
             className="text-on-surface-variant no-underline transition hover:text-primary"
-            activeProps={{ className: 'text-primary' }}
           >
             A Obra10+
-          </Link>
+          </a>
         </div>
 
         <div className="order-2 flex w-full flex-wrap items-center justify-end gap-2 sm:order-3 sm:ml-auto sm:w-auto">

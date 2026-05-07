@@ -6,11 +6,8 @@ import Header from './Header'
 
 function isStandaloneRoute(routeId: string | undefined, pathname: string): boolean {
   const p = (pathname || '/').replace(/\/$/, '') || '/'
-  if (routeId === '/login' || routeId === '/cadastro' || routeId === '/acesso') return true
-  if (routeId === '/acesso-pendente') return true
-  if (routeId === '/crm' || routeId === '/crm/' || (routeId?.startsWith('/crm/') ?? false)) return true
-  if (p === '/login' || p === '/cadastro' || p === '/acesso' || p === '/acesso-pendente' || p.startsWith('/crm'))
-    return true
+  if (routeId === '/login' || routeId === '/cadastro' || routeId === '/portal') return true
+  if (p === '/login' || p === '/cadastro' || p === '/portal') return true
   return false
 }
 

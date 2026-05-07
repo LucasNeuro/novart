@@ -158,12 +158,12 @@ export default function LandingHome() {
             A Obra10+ reúne a ambição de um produto sério: digital, humano e preparado para o
             tamanho dos seus desafios — hoje e amanhã.
           </p>
-          <Link
-            to="/about"
+          <a
+            href="#plataforma"
             className="mt-8 inline-flex border-2 border-white px-8 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white no-underline transition hover:bg-white hover:text-primary"
           >
             Nossa história e propósito
-          </Link>
+          </a>
         </div>
       </section>
 
@@ -224,12 +224,12 @@ export default function LandingHome() {
             >
               Área do cliente
             </Link>
-            <Link
-              to="/about"
+            <a
+              href="#como-funciona"
               className="inline-flex border-2 border-primary bg-white px-10 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-primary no-underline transition hover:bg-white/90"
             >
               Conheça a Obra10+
-            </Link>
+            </a>
           </div>
         </div>
       </section>
