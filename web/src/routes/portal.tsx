@@ -34,6 +34,11 @@ function formatDateTime(raw: string): string {
   })
 }
 
+function formatOptionalDate(raw: string | null): string {
+  if (!raw) return 'Sem registro'
+  return formatDateTime(raw)
+}
+
 function statCard(
   title: string,
   value: string | number,
@@ -142,9 +147,11 @@ function PortalPage() {
       }
     }
     const newLeads = data.leads.filter((lead) => lead.status === 'novo').length
-    const closedLeads = data.leads.filter((lead) =>
-      ['fechado', 'won', 'ganho', 'concluido', 'concluído'].includes(lead.status.toLowerCase()),
-    ).length
+    const closedLeads =
+      data.advanced.closedLeads ||
+      data.leads.filter((lead) =>
+        ['fechado', 'won', 'ganho', 'concluido', 'concluído'].includes(lead.status.toLowerCase()),
+      ).length
     const inProgressLeads = Math.max(data.leads.length - newLeads - closedLeads, 0)
     const topSegments = data.stats.segmentCounts.slice(0, 3).map((row) => ({
       ...row,
@@ -155,7 +162,10 @@ function PortalPage() {
       newLeads,
       inProgressLeads,
       closedLeads,
-      conversionRate: ratio(closedLeads, data.stats.totalLeads),
+      conversionRate:
+        data.advanced.closeRatePercent === null
+          ? ratio(closedLeads, data.stats.totalLeads)
+          : `${Math.round(data.advanced.closeRatePercent)}%`,
       topSegments,
       latestUpdates,
     }
@@ -317,17 +327,58 @@ function PortalPage() {
                 </div>
               </article>
             </div>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <article className="border border-[#d6e0ec] bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#324c69]">Painel IA e operação</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {[
+                    ['Última sessão', formatOptionalDate(data.advanced.lastSessionAt)],
+                    ['Última mensagem', formatOptionalDate(data.advanced.lastMessageAt)],
+                    ['Último imóvel atualizado', formatOptionalDate(data.advanced.lastImovelUpdateAt)],
+                    ['Último evento', formatOptionalDate(data.advanced.lastDomainEventAt)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="border border-[#e4ebf3] bg-[#f9fbff] p-3">
+                      <p className="text-[10px] font-black uppercase tracking-[0.11em] text-[#44607f]">{label}</p>
+                      <p className="mt-1 text-sm font-bold text-[#183655]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="border border-[#d6e0ec] bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#324c69]">Tempo médio por segmento (dias)</p>
+                <div className="mt-3 space-y-2">
+                  {data.advanced.segmentTempo.length === 0 ? (
+                    <p className="text-sm text-[#5a738f]">Sem dados de tempo médio.</p>
+                  ) : (
+                    data.advanced.segmentTempo.map((row) => (
+                      <div key={row.segmento} className="grid grid-cols-3 gap-2 border border-[#e4ebf3] bg-[#f9fbff] px-3 py-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.11em] text-[#173655]">{row.segmento}</p>
+                        <p className="text-[11px] font-semibold text-[#4b6582]">
+                          Criação: {row.avgDaysSinceCreated === null ? '-' : row.avgDaysSinceCreated.toFixed(1)}
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#4b6582]">
+                          Atualização: {row.avgDaysSinceUpdate === null ? '-' : row.avgDaysSinceUpdate.toFixed(1)}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
+            </div>
           </section>
         )}
 
         {data && activeTab === 'kanban' && (
-          <section className="space-y-3">
+          <section className="flex h-[72dvh] min-h-0 flex-col space-y-3">
             <p className="text-xs font-semibold text-[#415a78]">Arraste os cards entre colunas para mover o negócio no funil.</p>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="min-h-0 flex-1 overflow-x-auto">
+              <div className="grid h-full min-w-[1200px] grid-cols-4 gap-3">
               {groupedColumns.map((column) => (
                 <article
                   key={column.id}
-                  className={`border bg-[#f7faff] p-3 transition ${dropColumnId === column.id ? 'border-[#00c853]' : 'border-[#d7e0eb]'}`}
+                  className={`flex min-h-0 flex-col border bg-[#f7faff] p-3 transition ${dropColumnId === column.id ? 'border-[#00c853]' : 'border-[#d7e0eb]'}`}
                   onDragOver={(e) => {
                     e.preventDefault()
                     setDropColumnId(column.id)
@@ -342,7 +393,7 @@ function PortalPage() {
                     <h3 className="text-xs font-black uppercase tracking-[0.14em] text-[#1b3654]">{column.title}</h3>
                     <span className="text-xs font-black text-[#00a846]">{column.leads.length}</span>
                   </div>
-                  <div className="max-h-[58dvh] space-y-2 overflow-y-auto pr-1">
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {column.leads.length === 0 ? (
                       <div className="border border-dashed border-[#d1dbe8] bg-white p-3 text-center text-xs text-[#6b819a]">
                         Solte um lead aqui
@@ -366,6 +417,7 @@ function PortalPage() {
                   </div>
                 </article>
               ))}
+              </div>
             </div>
           </section>
         )}

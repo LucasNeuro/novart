@@ -33,6 +33,19 @@ export type PortalBoardData = {
     segmentCounts: Array<{ segmento: string; total: number }>
   }
   tableCounts: Array<{ label: string; total: number | null }>
+  advanced: {
+    closedLeads: number
+    closeRatePercent: number | null
+    lastSessionAt: string | null
+    lastMessageAt: string | null
+    lastImovelUpdateAt: string | null
+    lastDomainEventAt: string | null
+    segmentTempo: Array<{
+      segmento: string
+      avgDaysSinceCreated: number | null
+      avgDaysSinceUpdate: number | null
+    }>
+  }
 }
 
 const FALLBACK_COLUMNS: KanbanColumn[] = [
@@ -154,13 +167,24 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
         high_potential_leads: number
         active_stages: number
         updated_today: number
+        closed_leads: number
+        close_rate_percent: number | null
       }>(supabase, 'vw_dashboard_portal_resumo'),
-      fetchViewRows<{ segmento: string; total: number }>(supabase, 'vw_dashboard_portal_segmentos'),
+      fetchViewRows<{
+        segmento: string
+        total: number
+        avg_days_since_created: number | null
+        avg_days_since_update: number | null
+      }>(supabase, 'vw_dashboard_portal_segmentos'),
       fetchViewSingle<{
         total_sessions: number
         total_messages: number
         total_imoveis: number
         total_domain_events: number
+        last_session_at: string | null
+        last_message_at: string | null
+        last_imovel_update_at: string | null
+        last_domain_event_at: string | null
       }>(supabase, 'vw_dashboard_portal_ai_operacao'),
       fetchTableCount(supabase, 'maria_sessions'),
       fetchTableCount(supabase, 'maria_messages'),
@@ -176,6 +200,15 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
     segmentView
       ?.map((row) => ({ segmento: row.segmento, total: Number(row.total) }))
       .sort((a, b) => b.total - a.total) ?? null
+
+  const segmentTempoFromView =
+    segmentView?.map((row) => ({
+      segmento: row.segmento,
+      avgDaysSinceCreated:
+        row.avg_days_since_created === null ? null : Number(row.avg_days_since_created),
+      avgDaysSinceUpdate:
+        row.avg_days_since_update === null ? null : Number(row.avg_days_since_update),
+    })) ?? []
 
   const stats = {
     totalLeads: summaryView?.total_leads ?? leads.length,
@@ -199,6 +232,15 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
     columns,
     stats,
     tableCounts,
+    advanced: {
+      closedLeads: summaryView?.closed_leads ?? 0,
+      closeRatePercent: summaryView?.close_rate_percent ?? null,
+      lastSessionAt: aiOpsView?.last_session_at ?? null,
+      lastMessageAt: aiOpsView?.last_message_at ?? null,
+      lastImovelUpdateAt: aiOpsView?.last_imovel_update_at ?? null,
+      lastDomainEventAt: aiOpsView?.last_domain_event_at ?? null,
+      segmentTempo: segmentTempoFromView,
+    },
   }
 }
 
