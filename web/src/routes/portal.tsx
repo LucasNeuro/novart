@@ -484,46 +484,82 @@ function PortalPage() {
               <span className="h-6 w-1 bg-[#00c853]" />
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1a3658]">Farol score card por tipo de lead</p>
             </div>
-            <article className="border border-[#d6e0ec] bg-white p-4">
-              <div className="max-h-[58dvh] overflow-auto border border-[#e4ebf3]">
-                <table className="min-w-full text-left text-xs">
-                  <thead className="sticky top-0 bg-[#f4f8fd] text-[10px] font-black uppercase tracking-[0.13em] text-[#2f4968]">
-                    <tr>
-                      <th className="px-3 py-2">Tipo de lead</th>
-                      <th className="px-3 py-2">Total</th>
-                      <th className="px-3 py-2">Alto potencial</th>
-                      <th className="px-3 py-2">Últimos 7 dias</th>
-                      <th className="px-3 py-2">Score</th>
-                      <th className="px-3 py-2">Farol</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.advanced.leadKindScores.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-8 text-center text-sm text-[#5f7894]">
-                          Sem dados de tipos de lead para score card.
-                        </td>
-                      </tr>
-                    ) : (
-                      data.advanced.leadKindScores.map((row) => (
-                        <tr key={row.leadKind} className="border-t border-[#edf2f8]">
-                          <td className="px-3 py-2 font-bold uppercase tracking-[0.08em] text-[#16314f]">{row.leadKind}</td>
-                          <td className="px-3 py-2">{row.total}</td>
-                          <td className="px-3 py-2 text-[#00a846]">{row.highPotential}</td>
-                          <td className="px-3 py-2">{row.newLast7d}</td>
-                          <td className="px-3 py-2 font-black text-[#10263f]">{row.score}</td>
-                          <td className="px-3 py-2">
-                            <span className={`inline-flex border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${farolChipClass(row.farol)}`}>
-                              {row.farol}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </article>
+            {data.advanced.leadKindScores.length === 0 ? (
+              <article className="border border-[#d6e0ec] bg-white p-8 text-center text-sm text-[#5f7894]">
+                Sem dados de tipos de lead para score card.
+              </article>
+            ) : (
+              <>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {statCard(
+                    'Tipos monitorados',
+                    data.advanced.leadKindScores.length,
+                    'Categorias com score ativo',
+                    'Mapa de entrada por perfil',
+                  )}
+                  {statCard(
+                    'Total de entradas',
+                    data.advanced.leadKindScores.reduce((acc, row) => acc + row.total, 0),
+                    'Volume agregado',
+                    'Soma de todos os tipos',
+                  )}
+                  {statCard(
+                    'Melhor score',
+                    data.advanced.leadKindScores[0]?.score ?? 0,
+                    'Tipo mais forte no momento',
+                    (data.advanced.leadKindScores[0]?.leadKind ?? '-').replace(/_/g, ' '),
+                    true,
+                  )}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {data.advanced.leadKindScores.map((row) => (
+                    <article key={row.leadKind} className="border border-[#d6e0ec] bg-white p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#16314f]">
+                          {row.leadKind.replace(/_/g, ' ')}
+                        </p>
+                        <span
+                          className={`inline-flex border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${farolChipClass(row.farol)}`}
+                        >
+                          {row.farol}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="border border-[#e4ebf3] bg-[#f9fbff] p-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.11em] text-[#486381]">Total</p>
+                          <p className="mt-1 text-2xl font-black text-[#10263f]">{row.total}</p>
+                        </div>
+                        <div className="border border-[#e4ebf3] bg-[#f9fbff] p-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.11em] text-[#486381]">Score</p>
+                          <p className="mt-1 text-2xl font-black text-[#10263f]">{row.score}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <p className="text-[11px] font-semibold text-[#46607f]">
+                          Alto potencial: <span className="font-black text-[#00a846]">{row.highPotential}</span>
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#46607f]">
+                          Últimos 7 dias: <span className="font-black text-[#16314f]">{row.newLast7d}</span>
+                        </p>
+                      </div>
+                      <div className="mt-3 h-2 w-full overflow-hidden bg-[#e8eef7]">
+                        <div
+                          className={`h-full ${
+                            row.farol === 'verde'
+                              ? 'bg-[#00c853]'
+                              : row.farol === 'amarelo'
+                                ? 'bg-[#ffca28]'
+                                : 'bg-[#ef5350]'
+                          }`}
+                          style={{ width: `${Math.min(100, row.score)}%` }}
+                        />
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
         )}
 
