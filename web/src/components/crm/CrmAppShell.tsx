@@ -1,13 +1,17 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import Obra10Logo from '../Obra10Logo'
 import { getSupabaseBrowserClient } from '../../lib/supabase/client'
 import { isSupabaseConfigured } from '../../lib/env'
 
 const navItems = [
-  { to: '/crm' as const, label: 'Triagem', icon: 'account_tree' },
-  { to: '/crm/aprovacoes' as const, label: 'Equipa', icon: 'how_to_reg' },
-  { to: '/crm' as const, label: 'Cadastros', icon: 'group', disabled: true, hint: 'Em breve' },
+  { to: '/crm' as const, label: 'Dashboard', icon: 'dashboard' },
+  { to: '/crm/geral' as const, label: 'CRM Geral', icon: 'account_tree' },
+  { to: '/crm/imobiliaria' as const, label: 'Imobiliaria', icon: 'home_work' },
+  { to: '/crm/arquitetura' as const, label: 'Arquitetura', icon: 'architecture' },
+  { to: '/crm/servicos' as const, label: 'Servicos', icon: 'handyman' },
+  { to: '/crm/produtos' as const, label: 'Produtos', icon: 'inventory_2' },
+  { to: '/crm/configuracoes' as const, label: 'Configuracoes', icon: 'settings' },
 ] as const
 
 type CrmAppShellProps = {
@@ -18,6 +22,7 @@ type CrmAppShellProps = {
 export default function CrmAppShell({ children, userEmail }: CrmAppShellProps) {
   const [expanded, setExpanded] = useState(true)
   const navigate = useNavigate()
+  const location = useLocation()
 
   const toggleSidebar = useCallback(() => setExpanded((e) => !e), [])
 
@@ -29,11 +34,14 @@ export default function CrmAppShell({ children, userEmail }: CrmAppShellProps) {
     await navigate({ to: '/login' })
   }, [navigate])
 
-  const sidebarW = expanded ? 'w-56' : 'w-[72px]'
+  const sidebarW = expanded ? 'w-64' : 'w-[76px]'
+  const activeItem =
+    navItems.find((item) =>
+      item.to === '/crm' ? location.pathname === '/crm' : location.pathname.startsWith(item.to),
+    ) ?? navItems[0]
 
   return (
     <div className="flex h-dvh w-full max-w-full overflow-hidden bg-surface text-on-surface">
-      {/* Sidebar — mini / expandido */}
       <aside
         className={`flex shrink-0 flex-col border-r-2 border-primary bg-primary text-white transition-[width] duration-200 ease-out ${sidebarW}`}
       >
@@ -97,7 +105,6 @@ export default function CrmAppShell({ children, userEmail }: CrmAppShellProps) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Barra superior fixa (coluna direita) */}
         <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b-2 border-primary bg-white px-4">
           <div className="flex items-center gap-2">
             <button
@@ -113,7 +120,7 @@ export default function CrmAppShell({ children, userEmail }: CrmAppShellProps) {
             </button>
             <div className="hidden min-w-0 sm:block">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-secondary">CRM</p>
-              <p className="truncate text-sm font-black text-primary">Triagem HUB</p>
+              <p className="truncate text-sm font-black text-primary">{activeItem.label}</p>
             </div>
           </div>
 
