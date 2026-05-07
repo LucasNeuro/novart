@@ -59,7 +59,58 @@ select
   (select max(mi.updated_at) from public.maria_imoveis mi) as last_imovel_update_at,
   (select max(de.created_at) from public.domain_events de) as last_domain_event_at;
 
+create or replace view public.vw_dashboard_portal_funil as
+with base as (
+  select
+    coalesce(ps.name, initcap(pg.status)) as stage_name,
+    pg.created_at,
+    pg.updated_at
+  from public.pipeline_geral pg
+  left join public.pipeline_stages ps on ps.id = pg.stage_id
+)
+select
+  base.stage_name,
+  count(*)::bigint as total,
+  round(avg(extract(epoch from (now() - base.created_at)) / 86400.0)::numeric, 2) as avg_days_in_pipeline,
+  round(avg(extract(epoch from (now() - base.updated_at)) / 86400.0)::numeric, 2) as avg_days_since_update
+from base
+group by base.stage_name
+order by total desc;
+
+create or replace view public.vw_dashboard_portal_lead_kind_score as
+with base as (
+  select
+    coalesce(ml.lead_kind::text, 'desconhecido') as lead_kind,
+    coalesce(ml.potencial::text, '') as potencial,
+    ml.created_at
+  from public.maria_leads ml
+),
+agg as (
+  select
+    lead_kind,
+    count(*)::bigint as total,
+    count(*) filter (where lower(potencial) like '%alto%')::bigint as high_potential,
+    count(*) filter (where created_at >= now() - interval '7 days')::bigint as new_last_7d
+  from base
+  group by lead_kind
+)
+select
+  agg.lead_kind,
+  agg.total,
+  agg.high_potential,
+  agg.new_last_7d,
+  round((agg.total * 0.45 + agg.high_potential * 1.8 + agg.new_last_7d * 1.2)::numeric, 0)::int as score,
+  case
+    when (agg.total * 0.45 + agg.high_potential * 1.8 + agg.new_last_7d * 1.2) >= 25 then 'verde'
+    when (agg.total * 0.45 + agg.high_potential * 1.8 + agg.new_last_7d * 1.2) >= 10 then 'amarelo'
+    else 'vermelho'
+  end as farol
+from agg
+order by score desc;
+
 -- Permissões de leitura (ajuste conforme seu modelo de RLS/perfis).
 grant select on public.vw_dashboard_portal_resumo to anon, authenticated;
 grant select on public.vw_dashboard_portal_segmentos to anon, authenticated;
 grant select on public.vw_dashboard_portal_ai_operacao to anon, authenticated;
+grant select on public.vw_dashboard_portal_funil to anon, authenticated;
+grant select on public.vw_dashboard_portal_lead_kind_score to anon, authenticated;

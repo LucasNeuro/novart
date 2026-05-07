@@ -22,6 +22,15 @@ export type KanbanColumn = {
   order: number
 }
 
+export type LeadKindScore = {
+  leadKind: string
+  total: number
+  highPotential: number
+  newLast7d: number
+  score: number
+  farol: 'verde' | 'amarelo' | 'vermelho'
+}
+
 export type PortalBoardData = {
   leads: PipelineLead[]
   columns: KanbanColumn[]
@@ -45,6 +54,8 @@ export type PortalBoardData = {
       avgDaysSinceCreated: number | null
       avgDaysSinceUpdate: number | null
     }>
+    leadKindScores: LeadKindScore[]
+    stageDistribution: Array<{ stage: string; total: number; sharePercent: number }>
   }
 }
 
@@ -102,6 +113,16 @@ async function fetchViewRows<T>(
   return (data as T[] | null) ?? null
 }
 
+async function fetchTableRows<T>(
+  supabase: SupabaseClient,
+  tableName: string,
+  selectClause: string,
+): Promise<T[] | null> {
+  const { data, error } = await supabase.from(tableName).select(selectClause)
+  if (error) return null
+  return (data as T[] | null) ?? null
+}
+
 export async function loadPortalBoardData(supabase: SupabaseClient): Promise<PortalBoardData> {
   const [{ data: stageRows, error: stageError }, { data: leadRows, error: leadError }] =
     await Promise.all([
@@ -120,7 +141,6 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
   if (leadError) {
     throw new Error(leadError.message)
   }
-
   const stages =
     stageRows?.map((row) => ({
       id: row.id,
@@ -160,8 +180,18 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
     segmentMap.set(lead.segmento, (segmentMap.get(lead.segmento) ?? 0) + 1)
   }
 
-  const [summaryView, segmentView, aiOpsView, sessionsCount, messagesCount, imoveisCount, eventosCount] =
-    await Promise.all([
+  const [
+    summaryView,
+    segmentView,
+    aiOpsView,
+    funilView,
+    leadKindScoreView,
+    mariaLeadRows,
+    sessionsCount,
+    messagesCount,
+    imoveisCount,
+    eventosCount,
+  ] = await Promise.all([
       fetchViewSingle<{
         total_leads: number
         high_potential_leads: number
@@ -186,6 +216,23 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
         last_imovel_update_at: string | null
         last_domain_event_at: string | null
       }>(supabase, 'vw_dashboard_portal_ai_operacao'),
+      fetchViewRows<{
+        stage_name: string
+        total: number
+      }>(supabase, 'vw_dashboard_portal_funil'),
+      fetchViewRows<{
+        lead_kind: string
+        total: number
+        high_potential: number
+        new_last_7d: number
+        score: number
+        farol: 'verde' | 'amarelo' | 'vermelho'
+      }>(supabase, 'vw_dashboard_portal_lead_kind_score'),
+      fetchTableRows<{
+        lead_kind: string
+        potencial: string | null
+        created_at: string | null
+      }>(supabase, 'maria_leads', 'lead_kind, potencial, created_at'),
       fetchTableCount(supabase, 'maria_sessions'),
       fetchTableCount(supabase, 'maria_messages'),
       fetchTableCount(supabase, 'maria_imoveis'),
@@ -220,6 +267,74 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
     segmentCounts: segmentCountsFromView ?? computedSegmentCounts,
   }
 
+  const leadKindAccumulator = new Map<
+    string,
+    { total: number; highPotential: number; newLast7d: number }
+  >()
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+  for (const row of mariaLeadRows ?? []) {
+    const leadKind = String(row.lead_kind ?? 'desconhecido')
+    const current = leadKindAccumulator.get(leadKind) ?? {
+      total: 0,
+      highPotential: 0,
+      newLast7d: 0,
+    }
+    current.total += 1
+    const potencial = String(row.potencial ?? '').toLowerCase()
+    if (potencial.includes('alto')) current.highPotential += 1
+    if (row.created_at && new Date(row.created_at) >= sevenDaysAgo) current.newLast7d += 1
+    leadKindAccumulator.set(leadKind, current)
+  }
+
+  const leadKindScoresFromTable: LeadKindScore[] = [...leadKindAccumulator.entries()]
+    .map(([leadKind, values]) => {
+      const baseScore =
+        values.total * 0.45 +
+        values.highPotential * 1.8 +
+        values.newLast7d * 1.2
+      const score = Math.round(baseScore)
+      const farol: LeadKindScore['farol'] =
+        score >= 25 ? 'verde' : score >= 10 ? 'amarelo' : 'vermelho'
+      return {
+        leadKind,
+        total: values.total,
+        highPotential: values.highPotential,
+        newLast7d: values.newLast7d,
+        score,
+        farol,
+      }
+    })
+    .sort((a, b) => b.score - a.score)
+
+  const leadKindScoresFromView: LeadKindScore[] =
+    leadKindScoreView?.map((row) => ({
+      leadKind: row.lead_kind,
+      total: Number(row.total),
+      highPotential: Number(row.high_potential),
+      newLast7d: Number(row.new_last_7d),
+      score: Number(row.score),
+      farol: row.farol,
+    })) ?? []
+
+  const stageDistributionFromColumns = columns.map((column) => {
+    const total = leads.filter((lead) =>
+      column.stageId ? lead.stageId === column.stageId : lead.status === column.slug,
+    ).length
+    return {
+      stage: column.title,
+      total,
+      sharePercent: stats.totalLeads ? Math.round((total / stats.totalLeads) * 100) : 0,
+    }
+  })
+
+  const stageDistributionFromView =
+    funilView?.map((row) => ({
+      stage: row.stage_name,
+      total: Number(row.total),
+      sharePercent: stats.totalLeads ? Math.round((Number(row.total) / stats.totalLeads) * 100) : 0,
+    })) ?? []
+
   const tableCounts = [
     { label: 'Sessões IA', total: aiOpsView?.total_sessions ?? sessionsCount },
     { label: 'Mensagens IA', total: aiOpsView?.total_messages ?? messagesCount },
@@ -240,6 +355,8 @@ export async function loadPortalBoardData(supabase: SupabaseClient): Promise<Por
       lastImovelUpdateAt: aiOpsView?.last_imovel_update_at ?? null,
       lastDomainEventAt: aiOpsView?.last_domain_event_at ?? null,
       segmentTempo: segmentTempoFromView,
+      leadKindScores: leadKindScoresFromView.length > 0 ? leadKindScoresFromView : leadKindScoresFromTable,
+      stageDistribution: stageDistributionFromView.length > 0 ? stageDistributionFromView : stageDistributionFromColumns,
     },
   }
 }

@@ -7,13 +7,17 @@ import { loadPortalBoardData, movePipelineLead, type KanbanColumn, type Pipeline
 import Obra10Logo from '../components/Obra10Logo'
 
 type PortalTab = 'visao' | 'kanban' | 'leads' | 'segmentos'
+type ExtendedPortalTab = PortalTab | 'executivo' | 'eficiencia' | 'scorecard'
 
 export const Route = createFileRoute('/portal')({
   component: PortalPage,
 })
 
-const portalTabs: Array<{ id: PortalTab; label: string; icon: string }> = [
+const portalTabs: Array<{ id: ExtendedPortalTab; label: string; icon: string }> = [
   { id: 'visao', label: 'Visão geral', icon: 'monitoring' },
+  { id: 'executivo', label: 'Sumário executivo', icon: 'insights' },
+  { id: 'eficiencia', label: 'Eficiência do funil', icon: 'tune' },
+  { id: 'scorecard', label: 'Farol score card', icon: 'traffic' },
   { id: 'kanban', label: 'CRM Kanban', icon: 'view_kanban' },
   { id: 'leads', label: 'Leads', icon: 'group' },
   { id: 'segmentos', label: 'Segmentos', icon: 'category' },
@@ -37,6 +41,12 @@ function formatDateTime(raw: string): string {
 function formatOptionalDate(raw: string | null): string {
   if (!raw) return 'Sem registro'
   return formatDateTime(raw)
+}
+
+function farolChipClass(farol: 'verde' | 'amarelo' | 'vermelho') {
+  if (farol === 'verde') return 'border-[#00c853]/40 bg-[#e8fff2] text-[#008c3a]'
+  if (farol === 'amarelo') return 'border-[#ffca28]/50 bg-[#fff8e1] text-[#9a6c00]'
+  return 'border-[#ef9a9a]/50 bg-[#fff1f1] text-[#b32929]'
 }
 
 function statCard(
@@ -80,7 +90,7 @@ function leadCard(lead: PipelineLead) {
 function PortalPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<PortalTab>('visao')
+  const [activeTab, setActiveTab] = useState<ExtendedPortalTab>('visao')
   const [draggingLeadId, setDraggingLeadId] = useState<string | null>(null)
   const [dropColumnId, setDropColumnId] = useState<string | null>(null)
 
@@ -367,6 +377,153 @@ function PortalPage() {
                 </div>
               </article>
             </div>
+          </section>
+        )}
+
+        {data && activeTab === 'executivo' && (
+          <section className="space-y-4">
+            <div className="inline-flex items-center gap-2">
+              <span className="h-6 w-1 bg-[#00c853]" />
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1a3658]">Sumário executivo</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {statCard('Investimento total', data.stats.totalLeads, 'Base ativa', `${boardInsights.newLeads} novas entradas`)}
+              {statCard('Retorno (ROAS médio)', boardInsights.conversionRate, 'Eficiência geral', `${boardInsights.closedLeads} concluídos`, true)}
+              {statCard('Custo por conversão', `${Math.max(1, data.stats.totalLeads - boardInsights.closedLeads)}`, 'Ciclo atual', 'Indicador operacional')}
+              {statCard('Conversões totais', boardInsights.closedLeads, 'Fechamentos', `Taxa ${boardInsights.conversionRate}`)}
+              {statCard('Campanhas ativas', boardInsights.inProgressLeads, 'Pipeline em andamento', `${ratio(boardInsights.inProgressLeads, data.stats.totalLeads)} do total`)}
+              {statCard('Prioridade alta / insights', data.stats.highPotentialLeads, 'Leads prioritários', `${ratio(data.stats.highPotentialLeads, data.stats.totalLeads)} da carteira`)}
+            </div>
+
+            <article className="border border-[#d6e0ec] bg-white p-4">
+              <div className="inline-flex items-center gap-2">
+                <span className="h-5 w-1 bg-[#00c853]" />
+                <p className="text-xs font-black uppercase tracking-[0.17em] text-[#1a3658]">Comparativo por canal e eficiência</p>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                {data.stats.segmentCounts.slice(0, 3).map((segment, index) => (
+                  <article key={segment.segmento} className="border border-[#e2eaf4] bg-[#fbfdff] p-4">
+                    <p className="inline-flex border border-[#d7e3f2] bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#1c395b]">
+                      {index === 0 ? 'Canal A' : index === 1 ? 'Canal B' : 'Canal C'}
+                    </p>
+                    <p className="mt-3 text-3xl font-black text-[#10263f]">{segment.total}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-[#4b6582]">Volume do segmento {segment.segmento}</p>
+                    <div className="mt-4 h-2 overflow-hidden bg-[#e8eef7]">
+                      <div className="h-full bg-[#00c853]" style={{ width: ratio(segment.total, data.stats.totalLeads) }} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </article>
+          </section>
+        )}
+
+        {data && activeTab === 'eficiencia' && (
+          <section className="space-y-4">
+            <div className="inline-flex items-center gap-2">
+              <span className="h-6 w-1 bg-[#00c853]" />
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1a3658]">Eficiência do funil de conversão</p>
+            </div>
+            <article className="border border-[#0f233f] bg-gradient-to-r from-[#071627] to-[#0a2038] p-5 text-white">
+              <div className="grid gap-4 md:grid-cols-3">
+                {data.advanced.stageDistribution.slice(0, 3).map((stage, index) => (
+                  <div key={stage.stage} className="border border-white/10 bg-white/5 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/70">{index + 1}. {stage.stage}</p>
+                    <p className="mt-2 text-4xl font-black">{stage.total}</p>
+                    <p className="text-xs font-semibold text-[#00d15a]">{stage.sharePercent}% do funil</p>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="border border-[#d6e0ec] bg-white p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="inline-flex items-center gap-2">
+                  <span className="h-5 w-1 bg-[#00c853]" />
+                  <p className="text-xs font-black uppercase tracking-[0.17em] text-[#1a3658]">Detalhamento de campanhas ativas</p>
+                </div>
+                <p className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#00a846]">
+                  <span className="h-2 w-2 bg-[#00c853]" /> Alta performance
+                </p>
+              </div>
+              <div className="max-h-[46dvh] overflow-auto border border-[#e4ebf3]">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-[#f4f8fd] text-[10px] font-black uppercase tracking-[0.13em] text-[#2f4968]">
+                    <tr>
+                      <th className="px-3 py-2">Campanha / ID</th>
+                      <th className="px-3 py-2">Canal</th>
+                      <th className="px-3 py-2">Leads</th>
+                      <th className="px-3 py-2">Participação</th>
+                      <th className="px-3 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.advanced.stageDistribution.map((stage) => (
+                      <tr key={stage.stage} className="border-t border-[#edf2f8]">
+                        <td className="px-3 py-2 font-bold text-[#16314f]">{stage.stage}</td>
+                        <td className="px-3 py-2 text-[#3d5672]">Pipeline</td>
+                        <td className="px-3 py-2 text-[#10263f]">{stage.total}</td>
+                        <td className="px-3 py-2 text-[#00a846]">{stage.sharePercent}%</td>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex border border-[#00c853]/30 bg-[#e9fff3] px-2 py-1 text-[10px] font-black uppercase tracking-[0.11em] text-[#009a41]">
+                            ativa
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+        )}
+
+        {data && activeTab === 'scorecard' && (
+          <section className="space-y-4">
+            <div className="inline-flex items-center gap-2">
+              <span className="h-6 w-1 bg-[#00c853]" />
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#1a3658]">Farol score card por tipo de lead</p>
+            </div>
+            <article className="border border-[#d6e0ec] bg-white p-4">
+              <div className="max-h-[58dvh] overflow-auto border border-[#e4ebf3]">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-[#f4f8fd] text-[10px] font-black uppercase tracking-[0.13em] text-[#2f4968]">
+                    <tr>
+                      <th className="px-3 py-2">Tipo de lead</th>
+                      <th className="px-3 py-2">Total</th>
+                      <th className="px-3 py-2">Alto potencial</th>
+                      <th className="px-3 py-2">Últimos 7 dias</th>
+                      <th className="px-3 py-2">Score</th>
+                      <th className="px-3 py-2">Farol</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.advanced.leadKindScores.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-3 py-8 text-center text-sm text-[#5f7894]">
+                          Sem dados de tipos de lead para score card.
+                        </td>
+                      </tr>
+                    ) : (
+                      data.advanced.leadKindScores.map((row) => (
+                        <tr key={row.leadKind} className="border-t border-[#edf2f8]">
+                          <td className="px-3 py-2 font-bold uppercase tracking-[0.08em] text-[#16314f]">{row.leadKind}</td>
+                          <td className="px-3 py-2">{row.total}</td>
+                          <td className="px-3 py-2 text-[#00a846]">{row.highPotential}</td>
+                          <td className="px-3 py-2">{row.newLast7d}</td>
+                          <td className="px-3 py-2 font-black text-[#10263f]">{row.score}</td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${farolChipClass(row.farol)}`}>
+                              {row.farol}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </article>
           </section>
         )}
 
