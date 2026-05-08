@@ -567,7 +567,7 @@ function PortalPage() {
           <section className="flex h-[72dvh] min-h-0 flex-col space-y-3">
             <p className="text-xs font-semibold text-[#415a78]">Arraste os cards entre colunas para mover o negócio no funil.</p>
             <div className="min-h-0 flex-1 overflow-x-auto">
-              <div className="grid h-full min-w-[1200px] grid-cols-4 gap-3">
+              <div className="grid h-full min-w-max auto-cols-[300px] grid-flow-col gap-3">
               {groupedColumns.map((column) => (
                 <article
                   key={column.id}
